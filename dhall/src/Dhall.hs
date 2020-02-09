@@ -1375,13 +1375,11 @@ type family a || b :: Bool where
 {- | A type family to extract the types contained in a type definition.
      `Inhabits a b` means that type `a` occurs in the the type definition of `b`.
 -}
-type family Inhabits a (b :: * -> *) :: Bool where
+type family Inhabits (a :: k) (b :: * -> *) :: Bool where
     Inhabits a (f :+: g)  = Inhabits a f || Inhabits a g
     Inhabits a (f :*: g)  = Inhabits a f || Inhabits a g
     Inhabits a (M1 i c f) = Inhabits a f
-    Inhabits (f a b) (K1 R a) = 'False
-    Inhabits (f a b) (K1 R b) = 'False
-    Inhabits (f a)   (K1 R a) = 'False
+    Inhabits (f _)   (K1 R a) = Inhabits f (K1 R a)
     Inhabits a       (K1 R a) = 'True
     Inhabits _ _              = 'False
 
