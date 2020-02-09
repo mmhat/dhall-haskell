@@ -1,10 +1,12 @@
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
@@ -46,6 +48,7 @@ module Dhall
     , Decoder (..)
     , RecordDecoder(..)
     , UnionDecoder(..)
+    , Result
     , Encoder(..)
     , FromDhall(..)
     , Interpret
@@ -125,14 +128,16 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad (guard)
 import Data.Coerce (coerce)
 import Data.Either.Validation (Validation(..), ealt, eitherToValidation, validationToEither)
-import Data.Fix (Fix(..))
+import Data.Fix (Fix(..), cata)
 import Data.Functor.Contravariant (Contravariant(..), (>$<), Op(..))
 import Data.Functor.Contravariant.Divisible (Divisible(..), divided)
+import Data.Functor.Foldable (Base, Corecursive)
 import Data.Hashable (Hashable)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.HashMap.Strict (HashMap)
 import Data.Map (Map)
 import Data.Monoid ((<>))
+import Data.Proxy (Proxy(..))
 import Data.Scientific (Scientific)
 import Data.Semigroup (Semigroup)
 import Data.Sequence (Seq)
@@ -157,6 +162,7 @@ import qualified Control.Exception
 import qualified Control.Monad.Trans.State.Strict as State
 import qualified Data.Foldable
 import qualified Data.Functor.Compose
+import qualified Data.Functor.Foldable
 import qualified Data.Functor.Product
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map
@@ -1098,9 +1104,11 @@ fromList [("a",False),("b",True)]
 -}
 class FromDhall a where
     autoWith:: InterpretOptions -> Decoder a
-    default autoWith
-        :: (Generic a, GenericFromDhall (Rep a)) => InterpretOptions -> Decoder a
-    autoWith options = fmap GHC.Generics.to (evalState (genericAutoWith options) 1)
+    default autoWith :: GDecoder a (Inhabits a (Rep a)) => InterpretOptions -> Decoder a
+    autoWith options = f Proxy
+        where
+            f :: GDecoder a (Inhabits a (Rep a)) => Proxy (Inhabits a (Rep a)) -> Decoder a
+            f p = gautoWith p options
 
 {-| A compatibility alias for `FromDhall`
 
@@ -1355,6 +1363,41 @@ defaultInterpretOptions = InterpretOptions
     , inputNormalizer =
           Dhall.Core.ReifiedNormalizer (const (pure Nothing))
     }
+
+{- | Type-level boolean OR
+-}
+type family a || b :: Bool where
+    'False || b = b
+    'True  || b = 'True
+    a || 'False = a
+    a || 'True  = 'True
+
+{- | A type family to extract the types contained in a type definition.
+     `Inhabits a b` means that type `a` occurs in the the type definition of `b`.
+-}
+type family Inhabits a (b :: * -> *) :: Bool where
+    Inhabits a (f :+: g)  = Inhabits a f || Inhabits a g
+    Inhabits a (f :*: g)  = Inhabits a f || Inhabits a g
+    Inhabits a (M1 i c f) = Inhabits a f
+    Inhabits (f a b) (K1 R a) = 'False
+    Inhabits (f a b) (K1 R b) = 'False
+    Inhabits (f a)   (K1 R a) = 'False
+    Inhabits a       (K1 R a) = 'True
+    Inhabits _ _              = 'False
+
+gautoWith' :: (Generic a, GenericFromDhall (Rep a)) => InterpretOptions -> Decoder a
+gautoWith' options = fmap GHC.Generics.to (evalState (genericAutoWith options) 1)
+
+{- | We use GDecoder to distinguish beetween a generic implementation for recursive types (e. g. `Decoder a 'True`) and non-recursive ones (e.g. `Decoder a 'False`).
+-}
+class GDecoder a (rec :: Bool) where
+    gautoWith :: Proxy rec -> InterpretOptions -> Decoder a
+
+instance (Generic a, GenericFromDhall (Rep a)) => GDecoder a 'False where
+    gautoWith _ = gautoWith'
+
+instance (Corecursive a, FromDhall (Base a (Fix (Base a)))) => GDecoder a 'True where
+    gautoWith _ options = Data.Fix.cata Data.Functor.Foldable.embed <$> gautoWith' options
 
 {-| This is the underlying class that powers the `FromDhall` class's support
     for automatically deriving a generic implementation
