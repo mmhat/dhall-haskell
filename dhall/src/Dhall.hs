@@ -151,6 +151,7 @@ import Dhall.Syntax (Expr(..), Chunks(..), DhallDouble(..))
 import Dhall.Import (Imported(..))
 import Dhall.Parser (Src(..))
 import Dhall.TypeCheck (DetailedTypeError(..), TypeError)
+import Dhall.TypeLevel
 import GHC.Generics
 import Lens.Family (LensLike', view)
 import Numeric.Natural (Natural)
@@ -1104,10 +1105,10 @@ fromList [("a",False),("b",True)]
 -}
 class FromDhall a where
     autoWith:: InterpretOptions -> Decoder a
-    default autoWith :: GDecoder a (Inhabits a (Rep a)) => InterpretOptions -> Decoder a
+    default autoWith :: GDecoder a (Recursive a) => InterpretOptions -> Decoder a
     autoWith options = f Proxy
         where
-            f :: GDecoder a (Inhabits a (Rep a)) => Proxy (Inhabits a (Rep a)) -> Decoder a
+            f :: GDecoder a (Recursive a) => Proxy (Recursive a) -> Decoder a
             f p = gautoWith p options
 
 {-| A compatibility alias for `FromDhall`
@@ -1363,25 +1364,6 @@ defaultInterpretOptions = InterpretOptions
     , inputNormalizer =
           Dhall.Core.ReifiedNormalizer (const (pure Nothing))
     }
-
-{- | Type-level boolean OR
--}
-type family a || b :: Bool where
-    'False || b = b
-    'True  || b = 'True
-    a || 'False = a
-    a || 'True  = 'True
-
-{- | A type family to extract the types contained in a type definition.
-     `Inhabits a b` means that type `a` occurs in the the type definition of `b`.
--}
-type family Inhabits (a :: k) (b :: * -> *) :: Bool where
-    Inhabits a (f :+: g)  = Inhabits a f || Inhabits a g
-    Inhabits a (f :*: g)  = Inhabits a f || Inhabits a g
-    Inhabits a (M1 i c f) = Inhabits a f
-    Inhabits (f _)   (K1 R a) = Inhabits f (K1 R a)
-    Inhabits a       (K1 R a) = 'True
-    Inhabits _ _              = 'False
 
 gautoWith' :: (Generic a, GenericFromDhall (Rep a)) => InterpretOptions -> Decoder a
 gautoWith' options = fmap GHC.Generics.to (evalState (genericAutoWith options) 1)
