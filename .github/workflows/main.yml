@@ -128,10 +128,13 @@ jobs:
     needs: build
     permissions:
       contents: write
+    env:
+      CONTEXT: ${{ toJson(github) }}
     steps:
       - name:
         uses: actions/download-artifact@v2
       - run: |
+          echo "$CONTEXT"
           tag="${${{ github.ref }}#refs/tags/}"
           printf '%s' '${{ github.token }}' | gh auth login --with-token
           gh release create "${tag}" */*
