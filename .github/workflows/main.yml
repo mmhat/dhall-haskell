@@ -131,10 +131,7 @@ jobs:
     steps:
       - name:
         uses: actions/download-artifact@v2
-        with:
-          path: artifacts/
       - run: |
-          ls -R
-          #tag="${${{ github.ref }}#refs/tags/}"
-          #printf '%s' '${{ github.token }}' | gh auth login --with-token
-          #gh release create "${tag}"
+          tag="${${{ github.ref }}#refs/tags/}"
+          printf '%s' '${{ github.token }}' | gh auth login --with-token
+          gh release create "${tag}" */*
