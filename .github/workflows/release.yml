@@ -24,15 +24,15 @@ jobs:
     name: List artifacts
     runs-on: ubuntu-latest
     steps:
-      env:
-        CONTEXT: ${{ toJson(github.event) }}
-      run: |
-        echo "$CONTEXT"
-        printf '%s' '${{ github.token }}' | gh auth login --with-token
-        gh workflow view "${{ blah }}"
-        gh run view "${{ blah }}"
-        gh run download "${{ blah }}"
-        ls -al
+      - env:
+          CONTEXT: ${{ toJson(github.event) }}
+        run: |
+          echo "$CONTEXT"
+          printf '%s' '${{ github.token }}' | gh auth login --with-token
+          gh workflow view "${{ blah }}"
+          gh run view "${{ blah }}"
+          gh run download "${{ blah }}"
+          ls -al
 
 #  add-artifact:
 #    strategy:
