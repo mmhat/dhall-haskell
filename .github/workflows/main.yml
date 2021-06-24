@@ -1,4 +1,4 @@
-name: main
+name: Main
 
 on: [push]
 #on:
@@ -15,17 +15,6 @@ env:
   cache_generation: 2021-06-22
 
 jobs:
-  create-release:
-    name: "Create release"
-    runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
-    permissions:
-      deployments: read
-    steps:
-      - run: |
-          tag="${${{ github.ref }}#refs/tags/}"
-          printf '%s' '${{ github.token }}' | gh auth login --with-token
-          gh release create "${tag}"
   build:
     strategy:
       matrix:
@@ -34,8 +23,7 @@ jobs:
             package: macos
           - runner: ubuntu-latest
             package: null
-          - &windows
-            runner: windows-latest
+          - runner: windows-latest
             package: windows
         package:
           - name: dhall
@@ -76,7 +64,9 @@ jobs:
               bin/dhall-to-yaml-ng
               bin/yaml-to-dhall
         exclude:
-          - os: *windows
+          - os:
+              runner: windows-latest
+              package: windows
             package:
               name: dhall-nix
               assets: >
@@ -84,8 +74,6 @@ jobs:
       fail-fast: false
     name: ${{ matrix.package.name }} on ${{ matrix.os.runner }}
     runs-on: ${{ matrix.os.runner }}
-    permissions:
-      deployments: read
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v2
@@ -101,7 +89,7 @@ jobs:
         with:
           key: ${{ matrix.package.name }}-${{ matrix.os.runner }}-${{ hashFiles('stack.yaml') }}-${{ env.cache_generation }}
           restore-keys: |
-            ${{ matrix.package.name }}${{ matrix.os.runner }}-
+            ${{ matrix.package.name }}-${{ matrix.os.runner }}-
           path: |
             ${{ steps.setup-haskell-cabal.outputs.stack-root }}
       - name: "Build"
@@ -132,9 +120,3 @@ jobs:
         with:
           name: ${{ steps.package.outputs.package-file }}
           path: ${{ steps.package.outputs.package-file }}
-      - if: ${{ matrix.os.package != null && startsWith(github.ref, 'refs/tags/') }}
-        name: "Add package to release"
-        run: |
-          tag="${${{ github.ref }}#refs/tags/}"
-          printf '%s' '${{ github.token }}' | gh auth login --with-token
-          gh release upload "${tag}" "${{ steps.package.outputs.package-file }}"

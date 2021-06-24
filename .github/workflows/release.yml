@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Main"]
+    branches: ["master"]
+    types: ["completed"]
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: "Create release"
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    steps:
+      - run: |
+          tag="${${{ github.ref }}#refs/tags/}"
+          printf '%s' '${{ github.token }}' | gh auth login --with-token
+          gh release create "${tag}"
+
+  list-artifacts:
+    name: List artifacts
+    runs-on: ubuntu-latest
+    steps:
+      env:
+        CONTEXT: ${{ toJson(github.event) }}
+      run: |
+        echo "$CONTEXT"
+        printf '%s' '${{ github.token }}' | gh auth login --with-token
+        gh workflow view "${{ blah }}"
+        gh run view "${{ blah }}"
+        gh run download "${{ blah }}"
+        ls -al
+
+#  add-artifact:
+#    strategy:
+#      matrix:
+#        os:
+#          - macos
+#          #- linux
+#          - windows
+#        package:
+#          - dhall
+#          - dhall-bash
+#          - dhall-csv
+#          - dhall-docs
+#          - dhall-json
+#          - dhall-lsp-server
+#          - dhall-nix
+#          - dhall-openapi
+#          - dhall-toml
+#          - dhall-yaml
+#        exclude:
+#          - os: windows
+#            package: dhall-nix
+#      fail-fast: false
+#    name: Add ${{ matrix.package.name }} on ${{ matrix.os.runner }}
+#    runs-on: ubuntu-latest
+#    needs: create-release
+#    if: ${{ always() }}
+#    permissions:
+#      contents: write
+#    steps:
+#      - name: "Checkout repository"
+#        uses: actions/checkout@v2
+#        with:
+#          submodules: true
+#      - id: setup-haskell-cabal
+#        name: "Setup Haskell environment"
+#        uses: haskell/actions/setup@v1.2.1
+#        with:
+#          enable-stack: true
+#      - name: "Cache"
+#        uses: actions/cache@v2
+#        with:
+#          key: ${{ matrix.package.name }}-${{ matrix.os.runner }}-${{ hashFiles('stack.yaml') }}-${{ env.cache_generation }}
+#          restore-keys: |
+#            ${{ matrix.package.name }}-${{ matrix.os.runner }}-
+#          path: |
+#            ${{ steps.setup-haskell-cabal.outputs.stack-root }}
+#      - name: "Build"
+#        run: >
+#          stack build
+#          --copy-bins --local-bin-path ./bin
+#          ${{ matrix.package.name }}
+#      - name: "Run tests"
+#        run: |
+#          ${{ runner.os == 'Windows' && matrix.package.name == 'dhall' }} && chcp 65001
+#          stack test ${{ matrix.package.name }}
+#      - name: "Prepare packaging"
+#        run: |
+#          mkdir -p share/man/man1
+#          cp dhall/man/dhall.1 share/man/man1/
+#          cp dhall-docs/src/Dhall/data/man/dhall-docs.1 share/man/man1/
+#      - if: ${{ matrix.os.package != null }}
+#        id: package
+#        name: "Create package"
+#        uses: ./.github/actions/package
+#        with:
+#          cabal-name: ${{ matrix.package.name }}
+#          os: ${{ matrix.os.package }}
+#          assets: ${{ matrix.package.assets }}
+#      - if: ${{ matrix.os.package != null }}
+#        name: "Upload package"
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: ${{ steps.package.outputs.package-file }}
+#          path: ${{ steps.package.outputs.package-file }}
+#      - if: ${{ matrix.os.package != null && fromJson(env.release) }}
+#        name: "Add package to release"
+#        run: |
+#          tag="${${{ github.ref }}#refs/tags/}"
+#          printf '%s' '${{ github.token }}' | gh auth login --with-token
+#          gh release upload "${tag}" "${{ steps.package.outputs.package-file }}"
