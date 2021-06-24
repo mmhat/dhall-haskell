@@ -1,13 +1,19 @@
-env:
-  cache_generation: 2021-06-22
-
 name: main
+
 on: [push]
 #on:
 #  push:
 #    tags:
 #      - '[0-9]+.[0-9]+.[0-9]+'
 #      - '[0-9]+.[0-9]+.[0-9]+[0-9]+'
+
+concurrency: 
+  group: ${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  cache_generation: 2021-06-22
+
 jobs:
   create-release:
     name: "Create release"
@@ -18,6 +24,7 @@ jobs:
     steps:
       - run: |
           tag="${${{ github.ref }}#refs/tags/}"
+          printf '%s' '${{ github.token }}' | gh auth login --with-token
           gh release create "${tag}"
   build:
     strategy:
@@ -27,7 +34,8 @@ jobs:
             package: macos
           - runner: ubuntu-latest
             package: null
-          - runner: windows-latest
+          - &windows
+            runner: windows-latest
             package: windows
         package:
           - name: dhall
@@ -68,9 +76,7 @@ jobs:
               bin/dhall-to-yaml-ng
               bin/yaml-to-dhall
         exclude:
-          - os:
-              runner: windows-latest
-              package: windows
+          - os: *windows
             package:
               name: dhall-nix
               assets: >
@@ -130,4 +136,5 @@ jobs:
         name: "Add package to release"
         run: |
           tag="${${{ github.ref }}#refs/tags/}"
+          printf '%s' '${{ github.token }}' | gh auth login --with-token
           gh release upload "${tag}" "${{ steps.package.outputs.package-file }}"
