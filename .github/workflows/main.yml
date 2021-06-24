@@ -131,6 +131,8 @@ jobs:
     steps:
       - name:
         uses: actions/download-artifact@v2
+        with:
+          path: artifacts/
       - run: |
           ls -R
           #tag="${${{ github.ref }}#refs/tags/}"
