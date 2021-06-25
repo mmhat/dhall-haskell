@@ -137,4 +137,4 @@ jobs:
           echo "$CONTEXT"
           tag="${${{ github.ref }}#refs/tags/}"
           printf '%s' '${{ github.token }}' | gh auth login --with-token
-          gh release create "${tag}" */*
+          gh release create -R "${{ github.repository }}" "${tag}" */*
