@@ -74,6 +74,7 @@ import qualified Dhall.Crypto
 import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
 import qualified Dhall.Syntax.List     as Builtins
+import qualified Dhall.Syntax.Text     as Builtins
 import qualified Text.Printf           as Printf
 
 {-| Convert a function applied to multiple arguments to the base function and
@@ -773,13 +774,13 @@ encodeExpressionInternal encodeEmbed = go
         Double ->
             Encoding.encodeUtf8ByteArray "Double"
 
-        Text ->
+        TextExpr Builtins.Text ->
             Encoding.encodeUtf8ByteArray "Text"
 
-        TextReplace ->
+        TextExpr Builtins.TextReplace ->
             Encoding.encodeUtf8ByteArray "Text/replace"
 
-        TextShow ->
+        TextExpr Builtins.TextShow ->
             Encoding.encodeUtf8ByteArray "Text/show"
 
         Date ->
@@ -854,7 +855,7 @@ encodeExpressionInternal encodeEmbed = go
         NaturalTimes l r ->
             encodeOperator 5 l r
 
-        TextAppend l r ->
+        TextExpr (Builtins.TextAppend l r) ->
             encodeOperator 6 l r
 
         ListExpr (Builtins.ListAppend l r) ->
@@ -969,12 +970,12 @@ encodeExpressionInternal encodeEmbed = go
             useHalf = n64 == (float2Double $ fromHalf n16)
 
         -- Fast path for the common case of an uninterpolated string
-        TextLit (Chunks [] z) ->
+        TextExpr (Builtins.TextLit (Chunks [] z)) ->
             encodeList2
                 (Encoding.encodeInt 18)
                 (Encoding.encodeString z)
 
-        TextLit (Chunks xys z) ->
+        TextExpr (Builtins.TextLit (Chunks xys z)) ->
             encodeListN
                 (2 + 2 * length xys)
                 ( Encoding.encodeInt 18

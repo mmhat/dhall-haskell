@@ -27,7 +27,7 @@ module Dhall.Syntax (
     , Binding(..)
     , makeBinding
     , CharacterSet(..)
-    , Chunks(..)
+    , Dhall.Syntax.Text.Chunks(..)
     , DhallDouble(..)
     , PreferAnnotation(..)
     , Expr(..)
@@ -48,7 +48,7 @@ module Dhall.Syntax (
     , subExpressions
     , subExpressionsWith
     , unsafeSubExpressions
-    , chunkExprs
+    , Dhall.Syntax.Text.chunkExprs
     , bindingExprs
     , recordFieldExprs
     , functionBindingExprs
@@ -75,10 +75,10 @@ module Dhall.Syntax (
     , reservedKeywords
 
     -- * `Data.Text.Text` manipulation
-    , toDoubleQuoted
-    , longestSharedWhitespacePrefix
-    , linesLiteral
-    , unlinesLiteral
+    , Dhall.Syntax.Text.toDoubleQuoted
+    , Dhall.Syntax.Text.longestSharedWhitespacePrefix
+    , Dhall.Syntax.Text.linesLiteral
+    , Dhall.Syntax.Text.unlinesLiteral
 
     -- * Utilities
     , internalError
@@ -91,7 +91,6 @@ import                Control.DeepSeq            (NFData)
 import                Data.Bifunctor             (Bifunctor (..))
 import                Data.Bits                  (xor)
 import                Data.Data                  (Data)
-import                Data.Foldable
 import                Data.HashSet               (HashSet)
 import                Data.List.NonEmpty         (NonEmpty (..))
 import                Data.String                (IsString (..))
@@ -101,6 +100,7 @@ import                Data.Void                  (Void)
 import                Dhall.Map                  (Map)
 import {-# SOURCE #-} Dhall.Pretty.Internal
 import                Dhall.Src                  (Src (..))
+import                Dhall.Syntax.Text          (Chunks (..))
 import                GHC.Generics               (Generic)
 import                Instances.TH.Lift          ()
 import                Language.Haskell.TH.Syntax (Lift)
@@ -116,6 +116,7 @@ import qualified Data.Text
 import qualified Data.Time          as Time
 import qualified Dhall.Crypto
 import qualified Dhall.Syntax.List
+import qualified Dhall.Syntax.Text
 import qualified Lens.Family        as Lens
 import qualified Network.URI        as URI
 import qualified Prettyprinter      as Pretty
@@ -262,22 +263,6 @@ instance Ord DhallDouble where
         if a == b
             then EQ
             else compare a' b'
-
--- | The body of an interpolated @Text@ literal
-data Chunks s a = Chunks [(Text, Expr s a)] Text
-    deriving (Functor, Foldable, Generic, Traversable, Show, Eq, Ord, Data, Lift, NFData)
-
-instance Semigroup (Chunks s a) where
-    Chunks xysL zL <> Chunks         []    zR =
-        Chunks xysL (zL <> zR)
-    Chunks xysL zL <> Chunks ((x, y):xysR) zR =
-        Chunks (xysL ++ (zL <> x, y):xysR) zR
-
-instance Monoid (Chunks s a) where
-    mempty = Chunks [] mempty
-
-instance IsString (Chunks s a) where
-    fromString str = Chunks [] (fromString str)
 
 -- | Used to record the origin of a @//@ operator (i.e. from source code or a
 -- product of desugaring)
@@ -532,16 +517,6 @@ data Expr s a
     | DoubleLit DhallDouble
     -- | > DoubleShow                               ~  Double/show
     | DoubleShow
-    -- | > Text                                     ~  Text
-    | Text
-    -- | > TextLit (Chunks [(t1, e1), (t2, e2)] t3) ~  "t1${e1}t2${e2}t3"
-    | TextLit (Chunks s a)
-    -- | > TextAppend x y                           ~  x ++ y
-    | TextAppend (Expr s a) (Expr s a)
-    -- | > TextReplace                              ~ Text/replace
-    | TextReplace
-    -- | > TextShow                                 ~  Text/show
-    | TextShow
     -- | > Date                                     ~  Date
     | Date
     -- | > DateLiteral (fromGregorian _YYYY _MM _DD) ~ YYYY-MM-DD
@@ -560,6 +535,8 @@ data Expr s a
     | TimeZoneLiteral Time.TimeZone
     -- | A builtin list expression
     | ListExpr {-# UNPACK #-} !(Dhall.Syntax.List.ListExpr s a)
+    -- | A builtin text expression
+    | TextExpr {-# UNPACK #-} !(Dhall.Syntax.Text.TextExpr s a)
     -- | > Optional                                 ~  Optional
     | Optional
     -- | > Some e                                   ~  Some e
@@ -814,12 +791,6 @@ unsafeSubExpressions _ IntegerToDouble = pure IntegerToDouble
 unsafeSubExpressions _ Double = pure Double
 unsafeSubExpressions _ (DoubleLit n) = pure (DoubleLit n)
 unsafeSubExpressions _ DoubleShow = pure DoubleShow
-unsafeSubExpressions _ Text = pure Text
-unsafeSubExpressions f (TextLit chunks) =
-    TextLit <$> chunkExprs f chunks
-unsafeSubExpressions f (TextAppend a b) = TextAppend <$> f a <*> f b
-unsafeSubExpressions _ TextReplace = pure TextReplace
-unsafeSubExpressions _ TextShow = pure TextShow
 unsafeSubExpressions _ Date = pure Date
 unsafeSubExpressions _ (DateLiteral a) = pure (DateLiteral a)
 unsafeSubExpressions _ Time = pure Time
@@ -827,6 +798,7 @@ unsafeSubExpressions _ (TimeLiteral a b) = pure (TimeLiteral a b)
 unsafeSubExpressions _ TimeZone = pure TimeZone
 unsafeSubExpressions _ (TimeZoneLiteral a) = pure (TimeZoneLiteral a)
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
+unsafeSubExpressions f (TextExpr expr) = TextExpr <$> Dhall.Syntax.Text.subExpressions f expr
 unsafeSubExpressions _ Optional = pure Optional
 unsafeSubExpressions f (Some a) = Some <$> f a
 unsafeSubExpressions _ None = pure None
@@ -909,15 +881,6 @@ functionBindingExprs f (FunctionBinding s0 label s1 s2 type_) =
         <*> pure s2
         <*> f type_
 {-# INLINABLE functionBindingExprs #-}
-
--- | A traversal over the immediate sub-expressions in 'Chunks'.
-chunkExprs
-  :: Applicative f
-  => (Expr s a -> f (Expr t b))
-  -> Chunks s a -> f (Chunks t b)
-chunkExprs f (Chunks chunks final) =
-  flip Chunks final <$> traverse (traverse f) chunks
-{-# INLINABLE chunkExprs #-}
 
 {-| Internal representation of a directory that stores the path components in
     reverse order
@@ -1202,6 +1165,7 @@ reservedKeywords =
 reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
     Dhall.Syntax.List.reservedIdentifiers <>
+    Dhall.Syntax.Text.reservedIdentifiers <>
     Data.HashSet.fromList
         [ -- Builtins according to the `builtin` rule in the grammar
           "Natural/fold"
@@ -1220,8 +1184,6 @@ reservedIdentifiers = reservedKeywords <>
         , "Integer/show"
         , "Natural/subtract"
         , "Double/show"
-        , "Text/replace"
-        , "Text/show"
         , "Bool"
         , "True"
         , "False"
@@ -1230,7 +1192,6 @@ reservedIdentifiers = reservedKeywords <>
         , "Natural"
         , "Integer"
         , "Double"
-        , "Text"
         , "Date"
         , "Time"
         , "TimeZone"
@@ -1238,96 +1199,6 @@ reservedIdentifiers = reservedKeywords <>
         , "Kind"
         , "Sort"
         ]
-
--- | Same as @Data.Text.splitOn@, except always returning a `NonEmpty` result
-splitOn :: Text -> Text -> NonEmpty Text
-splitOn needle haystack =
-    case Data.Text.splitOn needle haystack of
-        []     -> "" :| []
-        t : ts -> t  :| ts
-
--- | Split `Chunks` by lines
-linesLiteral :: Chunks s a -> NonEmpty (Chunks s a)
-linesLiteral (Chunks [] suffix) =
-    fmap (Chunks []) (splitOn "\n" suffix)
-linesLiteral (Chunks ((prefix, interpolation) : pairs₀) suffix₀) =
-    foldr
-        NonEmpty.cons
-        (Chunks ((lastLine, interpolation) : pairs₁) suffix₁ :| chunks)
-        (fmap (Chunks []) initLines)
-  where
-    splitLines = splitOn "\n" prefix
-
-    initLines = NonEmpty.init splitLines
-    lastLine  = NonEmpty.last splitLines
-
-    Chunks pairs₁ suffix₁ :| chunks = linesLiteral (Chunks pairs₀ suffix₀)
-
--- | Flatten several `Chunks` back into a single `Chunks` by inserting newlines
-unlinesLiteral :: NonEmpty (Chunks s a) -> Chunks s a
-unlinesLiteral chunks =
-    Data.Foldable.fold (NonEmpty.intersperse "\n" chunks)
-
--- | Returns `True` if the `Chunks` represents a blank line
-emptyLine :: Chunks s a -> Bool
-emptyLine (Chunks [] ""  ) = True
-emptyLine (Chunks [] "\r") = True  -- So that `\r\n` is treated as a blank line
-emptyLine  _               = False
-
--- | Return the leading whitespace for a `Chunks` literal
-leadingSpaces :: Chunks s a -> Text
-leadingSpaces chunks = Data.Text.takeWhile isSpace firstText
-  where
-    isSpace c = c == ' ' || c == '\t'
-
-    firstText =
-        case chunks of
-            Chunks                []  suffix -> suffix
-            Chunks ((prefix, _) : _ ) _      -> prefix
-
-{-| Compute the longest shared whitespace prefix for the purposes of stripping
-    leading indentation
--}
-longestSharedWhitespacePrefix :: NonEmpty (Chunks s a) -> Text
-longestSharedWhitespacePrefix literals =
-    case fmap leadingSpaces filteredLines of
-        l : ls -> Data.Foldable.foldl' sharedPrefix l ls
-        []     -> ""
-  where
-    sharedPrefix ab ac =
-        case Data.Text.commonPrefixes ab ac of
-            Just (a, _b, _c) -> a
-            Nothing          -> ""
-
-    -- The standard specifies to filter out blank lines for all lines *except*
-    -- for the last line
-    filteredLines = newInit <> pure oldLast
-      where
-        oldInit = NonEmpty.init literals
-
-        oldLast = NonEmpty.last literals
-
-        newInit = filter (not . emptyLine) oldInit
-
--- | Drop the first @n@ characters for a `Chunks` literal
-dropLiteral :: Int -> Chunks s a -> Chunks s a
-dropLiteral n (Chunks [] suffix) =
-    Chunks [] (Data.Text.drop n suffix)
-dropLiteral n (Chunks ((prefix, interpolation) : rest) suffix) =
-    Chunks ((Data.Text.drop n prefix, interpolation) : rest) suffix
-
-{-| Convert a single-quoted `Chunks` literal to the equivalent double-quoted
-    `Chunks` literal
--}
-toDoubleQuoted :: Chunks Src a -> Chunks Src a
-toDoubleQuoted literal =
-    unlinesLiteral (fmap (dropLiteral indent) literals)
-  where
-    literals = linesLiteral literal
-
-    longestSharedPrefix = longestSharedWhitespacePrefix literals
-
-    indent = Data.Text.length longestSharedPrefix
 
 {-| `shift` is used by both normalization and type-checking to avoid variable
     capture by shifting variable indices

@@ -5,6 +5,9 @@
 module Dhall.Core.Builtins
     ( -- * List builtins
       module Dhall.Syntax.List
+    , -- * Text builtins
+      module Dhall.Syntax.Text
     ) where
 
 import Dhall.Syntax.List (ListExpr (..))
+import Dhall.Syntax.Text (TextExpr (..))

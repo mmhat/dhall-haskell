@@ -50,6 +50,7 @@ import qualified Dhall.Eval        as Eval
 import qualified Dhall.Map
 import qualified Dhall.Syntax      as Syntax
 import qualified Dhall.Syntax.List as Builtins
+import qualified Dhall.Syntax.Text as Builtins
 import qualified Lens.Family       as Lens
 
 {-| Returns `True` if two expressions are α-equivalent and β-equivalent and
@@ -465,8 +466,8 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
     Double -> pure Double
     DoubleLit n -> pure (DoubleLit n)
     DoubleShow -> pure DoubleShow
-    Text -> pure Text
-    TextLit (Chunks xys z) -> do
+    TextExpr Builtins.Text -> pure Text
+    TextExpr (Builtins.TextLit (Chunks xys z)) -> do
         chunks' <- mconcat <$> chunks
         case chunks' of
             Chunks [("", x)] "" -> pure x
@@ -480,9 +481,9 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
           case y' of
             TextLit c -> pure [Chunks [] x, c]
             _         -> pure [Chunks [(x, y')] mempty]
-    TextAppend x y -> loop (TextLit (Chunks [("", x), ("", y)] ""))
-    TextReplace -> pure TextReplace
-    TextShow -> pure TextShow
+    TextExpr (Builtins.TextAppend x y) -> loop (TextLit (Chunks [("", x), ("", y)] ""))
+    TextExpr Builtins.TextReplace -> pure TextReplace
+    TextExpr Builtins.TextShow -> pure TextShow
     Date -> pure Date
     DateLiteral d -> pure (DateLiteral d)
     Time -> pure Time
@@ -872,16 +873,16 @@ isNormalized e0 = loop (Syntax.denote e0)
       Double -> True
       DoubleLit _ -> True
       DoubleShow -> True
-      Text -> True
-      TextLit (Chunks [("", _)] "") -> False
-      TextLit (Chunks xys _) -> all (all check) xys
+      TextExpr Builtins.Text -> True
+      TextExpr (Builtins.TextLit (Chunks [("", _)] "")) -> False
+      TextExpr (Builtins.TextLit (Chunks xys _)) -> all (all check) xys
         where
           check y = loop y && case y of
               TextLit _ -> False
               _         -> True
-      TextAppend _ _ -> False
-      TextReplace -> True
-      TextShow -> True
+      TextExpr (Builtins.TextAppend _ _) -> False
+      TextExpr Builtins.TextReplace -> True
+      TextExpr Builtins.TextShow -> True
       Date -> True
       DateLiteral _ -> True
       Time -> True

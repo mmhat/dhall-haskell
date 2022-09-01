@@ -380,11 +380,6 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "Double")
             % (7 :: W "DoubleLit")
             % (1 :: W "DoubleShow")
-            % (1 :: W "Text")
-            % (1 :: W "TextLit")
-            % (1 :: W "TextAppend")
-            % (1 :: W "TextReplace")
-            % (1 :: W "TextShow")
             % (1 :: W "Date")
             % (1 :: W "DateLiteral")
             % (1 :: W "Time")
@@ -392,6 +387,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "TimeZone")
             % (1 :: W "TimeZoneLiteral")
             % (1 :: W "ListExpr")
+            % (1 :: W "TextExpr")
             % (1 :: W "Optional")
             % (7 :: W "Some")
             % (1 :: W "None")
@@ -418,10 +414,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
     shrink expression = filter standardizedExpression (genericShrink expression)
 
 standardizedExpression :: Expr s a -> Bool
-standardizedExpression (ListLit  Nothing  xs) =
-    not (Data.Sequence.null xs)
-standardizedExpression (ListLit (Just _ ) xs) =
-    Data.Sequence.null xs
+standardizedExpression (ListExpr expr) = standardizedListExpression expr
 standardizedExpression (Note _ _) =
     False
 standardizedExpression (Combine _ (Just _) _ _) =
@@ -467,6 +460,11 @@ standardizedListExpression (Builtins.ListLit (Just _ ) xs) =
     Data.Sequence.null xs
 standardizedListExpression _ =
     True
+
+instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.TextExpr s a) where
+    arbitrary = Generic.Random.genericArbitrary Generic.Random.uniform
+
+    shrink = genericShrink
 
 chooseCharacter :: (Char, Char) -> Gen Char
 chooseCharacter = Test.QuickCheck.chooseEnum

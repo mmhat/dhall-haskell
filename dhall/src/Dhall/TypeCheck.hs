@@ -82,6 +82,7 @@ import qualified Dhall.Pretty
 import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
 import qualified Dhall.Syntax.List           as Builtins
+import qualified Dhall.Syntax.Text           as Builtins
 import qualified Dhall.Util
 import qualified Lens.Family
 import qualified Prettyprinter               as Pretty
@@ -536,10 +537,10 @@ infer typer = loop
         DoubleShow ->
             return (VDouble ~> VText)
 
-        Text ->
+        TextExpr Builtins.Text ->
             return (VConst Type)
 
-        TextLit (Chunks xys _) -> do
+        TextExpr (Builtins.TextLit (Chunks xys _)) -> do
             let process (_, y) = do
                     _Y' <- loop ctx y
 
@@ -551,7 +552,7 @@ infer typer = loop
 
             return VText
 
-        TextAppend l r -> do
+        TextExpr (Builtins.TextAppend l r) -> do
             tl' <- loop ctx l
 
             case tl' of
@@ -566,7 +567,7 @@ infer typer = loop
 
             return VText
 
-        TextReplace ->
+        TextExpr Builtins.TextReplace ->
             return
                 (   VHPi "needle" VText  (\_needle ->
                         VHPi "replacement" VText (\_replacement ->
@@ -576,7 +577,7 @@ infer typer = loop
                         )
                     )
                 )
-        TextShow ->
+        TextExpr Builtins.TextShow ->
             return (VText ~> VText)
 
         Date ->

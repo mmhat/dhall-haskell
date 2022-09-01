@@ -5,13 +5,35 @@
 -}
 
 module Dhall.Syntax.Patterns (
-    Expr(List, ListLit, ListAppend, ListBuild, ListFold, ListLength, ListHead, ListLast, ListIndexed, ListReverse)
+    Expr
+        ( List
+        , ListLit
+        , ListAppend
+        , ListBuild
+        , ListFold
+        , ListLength
+        , ListHead
+        , ListLast
+        , ListIndexed
+        , ListReverse
+        , Text
+        , TextLit
+        , TextAppend
+        , TextReplace
+        , TextShow
+        )
     ) where
 
-import Data.Sequence (Seq)
-import Dhall.Syntax  (Expr (..))
+import Data.Sequence     (Seq)
+import Dhall.Syntax      (Expr (..))
+import Dhall.Syntax.Text (Chunks)
 
 import qualified Dhall.Syntax.List
+import qualified Dhall.Syntax.Text
+
+--------------------------------------------------------------------------------
+-- List builtin
+--------------------------------------------------------------------------------
 
 -- | > List  ~  List
 pattern List :: Expr s a
@@ -65,3 +87,27 @@ pattern ListIndexed = ListExpr Dhall.Syntax.List.ListIndexed
 -- | > ListReverse  ~  List/reverse
 pattern ListReverse :: Expr s a
 pattern ListReverse = ListExpr Dhall.Syntax.List.ListReverse
+
+--------------------------------------------------------------------------------
+-- Text builtin
+--------------------------------------------------------------------------------
+
+-- | > Text  ~  Text
+pattern Text :: Expr s a
+pattern Text = TextExpr Dhall.Syntax.Text.Text
+
+-- | > TextLit (Chunks [(t1, e1), (t2, e2)] t3)  ~  "t1${e1}t2${e2}t3"
+pattern TextLit :: Chunks s a -> Expr s a
+pattern TextLit chunks = TextExpr (Dhall.Syntax.Text.TextLit chunks)
+
+-- | > TextAppend x y  ~  x ++ y
+pattern TextAppend :: Expr s a -> Expr s a -> Expr s a
+pattern TextAppend text1 text2 = TextExpr (Dhall.Syntax.Text.TextAppend text1 text2)
+
+-- | > TextReplace  ~  Text/replace
+pattern TextReplace :: Expr s a
+pattern TextReplace = TextExpr Dhall.Syntax.Text.TextReplace
+
+-- | > TextShow  ~  Text/show
+pattern TextShow :: Expr s a
+pattern TextShow = TextExpr Dhall.Syntax.Text.TextShow

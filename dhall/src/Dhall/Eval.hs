@@ -82,6 +82,7 @@ import qualified Dhall.Map         as Map
 import qualified Dhall.Set
 import qualified Dhall.Syntax      as Syntax
 import qualified Dhall.Syntax.List as Builtins
+import qualified Dhall.Syntax.Text as Builtins
 import qualified Text.Printf
 
 data Environment a
@@ -606,19 +607,19 @@ eval !env t0 =
             VPrim $ \case
                 VDoubleLit (DhallDouble n) -> VTextLit (VChunks [] (Text.pack (show n)))
                 n                          -> VDoubleShow n
-        Text ->
+        TextExpr Builtins.Text ->
             VText
-        TextLit cs ->
+        TextExpr (Builtins.TextLit cs) ->
             case evalChunks cs of
                 VChunks [("", t)] "" -> t
                 vcs                  -> VTextLit vcs
-        TextAppend t u ->
+        TextExpr (Builtins.TextAppend t u) ->
             eval env (TextLit (Chunks [("", t), ("", u)] ""))
-        TextShow ->
+        TextExpr Builtins.TextShow ->
             VPrim $ \case
                 VTextLit (VChunks [] x) -> VTextLit (VChunks [] (textShow x))
                 t                       -> VTextShow t
-        TextReplace ->
+        TextExpr Builtins.TextReplace ->
             VPrim $ \needle ->
             let hLamInfo0 = case needle of
                     VTextLit (VChunks [] "") -> TextReplaceEmpty
@@ -1395,15 +1396,15 @@ alphaNormalize = goEnv EmptyNames
                 DoubleLit n
             DoubleShow ->
                 DoubleShow
-            Text ->
+            TextExpr Builtins.Text ->
                 Text
-            TextLit cs ->
+            TextExpr (Builtins.TextLit cs) ->
                 TextLit (goChunks cs)
-            TextAppend t u ->
+            TextExpr (Builtins.TextAppend t u) ->
                 TextAppend (go t) (go u)
-            TextShow ->
+            TextExpr Builtins.TextShow ->
                 TextShow
-            TextReplace ->
+            TextExpr Builtins.TextReplace ->
                 TextReplace
             Date ->
                 Date

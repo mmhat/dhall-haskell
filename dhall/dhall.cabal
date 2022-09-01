@@ -363,6 +363,7 @@ Library
         Dhall.Syntax
         Dhall.Syntax.List
         Dhall.Syntax.Patterns
+        Dhall.Syntax.Text
         Dhall.URL
         Paths_dhall
     Autogen-Modules:
