@@ -1,16 +1,16 @@
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DeriveLift                 #-}
-{-# LANGUAGE DeriveTraversable          #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE OverloadedLists            #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE StandaloneDeriving         #-}
-{-# LANGUAGE UnicodeSyntax              #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveLift         #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedLists    #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UnicodeSyntax      #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -94,7 +94,6 @@ import                Data.Data                  (Data)
 import                Data.Foldable
 import                Data.HashSet               (HashSet)
 import                Data.List.NonEmpty         (NonEmpty (..))
-import                Data.Sequence              (Seq)
 import                Data.String                (IsString (..))
 import                Data.Text                  (Text)
 import                Data.Traversable           ()
@@ -116,6 +115,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Text
 import qualified Data.Time          as Time
 import qualified Dhall.Crypto
+import qualified Dhall.Syntax.List
 import qualified Lens.Family        as Lens
 import qualified Network.URI        as URI
 import qualified Prettyprinter      as Pretty
@@ -558,39 +558,8 @@ data Expr s a
     -- | > TimeZoneLiteral (TimeZone ( 60 * _HH + _MM) _ _) ~ +HH:MM
     -- | > TimeZoneLiteral (TimeZone (-60 * _HH + _MM) _ _) ~ -HH:MM
     | TimeZoneLiteral Time.TimeZone
-    -- | > List                                     ~  List
-    | List
-    -- | > ListLit (Just t ) []                     ~  [] : t
-    --   > ListLit  Nothing  [x, y, z]              ~  [x, y, z]
-    --
-    --   Invariant: A non-empty list literal is always represented as
-    --   @ListLit Nothing xs@.
-    --
-    --   When an annotated, non-empty list literal is parsed, it is represented
-    --   as
-    --
-    --   > Annot (ListLit Nothing [x, y, z]) t      ~ [x, y, z] : t
-
-    -- Eventually we should have separate constructors for empty and non-empty
-    -- list literals. For now it's easier to check the invariant in @infer@.
-    -- See https://github.com/dhall-lang/dhall-haskell/issues/1359#issuecomment-537087234.
-    | ListLit (Maybe (Expr s a)) (Seq (Expr s a))
-    -- | > ListAppend x y                           ~  x # y
-    | ListAppend (Expr s a) (Expr s a)
-    -- | > ListBuild                                ~  List/build
-    | ListBuild
-    -- | > ListFold                                 ~  List/fold
-    | ListFold
-    -- | > ListLength                               ~  List/length
-    | ListLength
-    -- | > ListHead                                 ~  List/head
-    | ListHead
-    -- | > ListLast                                 ~  List/last
-    | ListLast
-    -- | > ListIndexed                              ~  List/indexed
-    | ListIndexed
-    -- | > ListReverse                              ~  List/reverse
-    | ListReverse
+    -- | A builtin list expression
+    | ListExpr {-# UNPACK #-} !(Dhall.Syntax.List.ListExpr s a)
     -- | > Optional                                 ~  Optional
     | Optional
     -- | > Some e                                   ~  Some e
@@ -857,16 +826,7 @@ unsafeSubExpressions _ Time = pure Time
 unsafeSubExpressions _ (TimeLiteral a b) = pure (TimeLiteral a b)
 unsafeSubExpressions _ TimeZone = pure TimeZone
 unsafeSubExpressions _ (TimeZoneLiteral a) = pure (TimeZoneLiteral a)
-unsafeSubExpressions _ List = pure List
-unsafeSubExpressions f (ListLit a b) = ListLit <$> traverse f a <*> traverse f b
-unsafeSubExpressions f (ListAppend a b) = ListAppend <$> f a <*> f b
-unsafeSubExpressions _ ListBuild = pure ListBuild
-unsafeSubExpressions _ ListFold = pure ListFold
-unsafeSubExpressions _ ListLength = pure ListLength
-unsafeSubExpressions _ ListHead = pure ListHead
-unsafeSubExpressions _ ListLast = pure ListLast
-unsafeSubExpressions _ ListIndexed = pure ListIndexed
-unsafeSubExpressions _ ListReverse = pure ListReverse
+unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
 unsafeSubExpressions _ Optional = pure Optional
 unsafeSubExpressions f (Some a) = Some <$> f a
 unsafeSubExpressions _ None = pure None
@@ -1241,6 +1201,7 @@ reservedKeywords =
 -- | Contains also all keywords from "reservedKeywords"
 reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
+    Dhall.Syntax.List.reservedIdentifiers <>
     Data.HashSet.fromList
         [ -- Builtins according to the `builtin` rule in the grammar
           "Natural/fold"
@@ -1259,13 +1220,6 @@ reservedIdentifiers = reservedKeywords <>
         , "Integer/show"
         , "Natural/subtract"
         , "Double/show"
-        , "List/build"
-        , "List/fold"
-        , "List/length"
-        , "List/head"
-        , "List/last"
-        , "List/indexed"
-        , "List/reverse"
         , "Text/replace"
         , "Text/show"
         , "Bool"
@@ -1280,7 +1234,6 @@ reservedIdentifiers = reservedKeywords <>
         , "Date"
         , "Time"
         , "TimeZone"
-        , "List"
         , "Type"
         , "Kind"
         , "Sort"

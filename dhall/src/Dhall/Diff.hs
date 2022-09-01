@@ -37,6 +37,7 @@ import Dhall.Syntax
     , Var (..)
     , WithComponent (..)
     )
+import Dhall.Syntax.Patterns (Expr (..))
 import Numeric.Natural       (Natural)
 import Prettyprinter         (Doc, Pretty)
 

@@ -63,6 +63,7 @@ import Dhall.Syntax
     , Var (..)
     , WithComponent (..)
     )
+import Dhall.Syntax.Patterns (Expr (..))
 
 import qualified Data.Foldable               as Foldable
 import qualified Data.Foldable.WithIndex     as Foldable.WithIndex
@@ -80,6 +81,7 @@ import qualified Dhall.Map
 import qualified Dhall.Pretty
 import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
+import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Util
 import qualified Lens.Family
 import qualified Prettyprinter               as Pretty
@@ -595,10 +597,10 @@ infer typer = loop
         TimeZoneLiteral _ ->
             return VTimeZone
 
-        List ->
+        ListExpr Builtins.List ->
             return (VConst Type ~> VConst Type)
 
-        ListLit Nothing ts₀ ->
+        ListExpr (Builtins.ListLit Nothing ts₀) ->
             case Data.Sequence.viewl ts₀ of
                 t₀ :< ts₁ -> do
                     _T₀' <- loop ctx t₀
@@ -636,7 +638,7 @@ infer typer = loop
                 _ ->
                     die MissingListType
 
-        ListLit (Just _T₀) ts ->
+        ListExpr (Builtins.ListLit (Just _T₀) ts) ->
             if Data.Sequence.null ts
                 then do
                     _ <- loop ctx _T₀
@@ -652,7 +654,7 @@ infer typer = loop
                 -- See https://github.com/dhall-lang/dhall-haskell/issues/1359.
                 else die ListLitInvariant
 
-        ListAppend x y -> do
+        ListExpr (Builtins.ListAppend x y) -> do
             tx' <- loop ctx x
 
             _A₀' <- case tx' of
@@ -674,7 +676,7 @@ infer typer = loop
 
             return (VList _A₀')
 
-        ListBuild ->
+        ListExpr Builtins.ListBuild ->
             return
                 (   VHPi "a" (VConst Type) (\a ->
                             VHPi "list" (VConst Type) (\list ->
@@ -686,7 +688,7 @@ infer typer = loop
                     )
                 )
 
-        ListFold ->
+        ListExpr Builtins.ListFold ->
             return
                 (   VHPi "a" (VConst Type) (\a ->
                             VList a
@@ -698,16 +700,16 @@ infer typer = loop
                     )
                 )
 
-        ListLength ->
+        ListExpr Builtins.ListLength ->
             return (VHPi "a" (VConst Type) (\a -> VList a ~> VNatural))
 
-        ListHead ->
+        ListExpr Builtins.ListHead ->
             return (VHPi "a" (VConst Type) (\a -> VList a ~> VOptional a))
 
-        ListLast ->
+        ListExpr Builtins.ListLast ->
             return (VHPi "a" (VConst Type) (\a -> VList a ~> VOptional a))
 
-        ListIndexed ->
+        ListExpr Builtins.ListIndexed ->
             return
                 (   VHPi "a" (VConst Type) (\a ->
                             VList a
@@ -721,7 +723,7 @@ infer typer = loop
                                 )
                     )
                 )
-        ListReverse ->
+        ListExpr Builtins.ListReverse ->
             return (VHPi "a" (VConst Type) (\a -> VList a ~> VList a))
 
         Optional ->
@@ -1475,7 +1477,7 @@ prettyTypeMessage (UnboundVariable x) = ErrorMessages {..}
   -- https://github.com/dhall-lang/dhall-haskell/pull/116
   where
     short = "Unbound variable: " <> Pretty.pretty x
-    
+
     hints = []
 
     long =
@@ -1590,7 +1592,7 @@ prettyTypeMessage (UnboundVariable x) = ErrorMessages {..}
 prettyTypeMessage (InvalidInputType expr) = ErrorMessages {..}
   where
     short = "Invalid function input"
-    
+
     hints = []
 
     long =

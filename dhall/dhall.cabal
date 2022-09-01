@@ -319,6 +319,7 @@ Library
         Dhall.Binary
         Dhall.Context
         Dhall.Core
+        Dhall.Core.Builtins
         Dhall.Crypto
         Dhall.Diff
         Dhall.DirectoryTree
@@ -360,6 +361,8 @@ Library
         Dhall.Parser.Combinators
         Dhall.Pretty.Internal
         Dhall.Syntax
+        Dhall.Syntax.List
+        Dhall.Syntax.Patterns
         Dhall.URL
         Paths_dhall
     Autogen-Modules:

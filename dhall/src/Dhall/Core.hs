@@ -86,13 +86,14 @@ import Dhall.Normalize
 import Dhall.Pretty.Internal
 import Dhall.Src              (Src (..))
 import Dhall.Syntax
+import Dhall.Syntax.Patterns
 import Instances.TH.Lift      ()
 import Lens.Family            (over)
 import Prettyprinter          (Pretty)
 
 import qualified Control.Exception
 import qualified Data.Text
-import qualified Dhall.Eval         as Eval
+import qualified Dhall.Eval        as Eval
 
 -- | Pretty-print a value
 pretty :: Pretty a => a -> Text

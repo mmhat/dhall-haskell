@@ -70,6 +70,7 @@ import Dhall.Syntax
     , DhallDouble (..)
     , Expr (..)
     )
+import Dhall.Syntax.Patterns                (Expr (..))
 import GHC.Generics
 import Prelude                              hiding (maybe, sequence)
 

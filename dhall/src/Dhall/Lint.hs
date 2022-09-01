@@ -35,6 +35,7 @@ import Dhall.Syntax
     , Var (..)
     , subExpressions
     )
+import Dhall.Syntax.Patterns (Expr (..))
 
 import qualified Data.Foldable      as Foldable
 import qualified Data.List.NonEmpty as NonEmpty

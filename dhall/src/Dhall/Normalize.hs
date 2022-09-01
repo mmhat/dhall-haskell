@@ -38,17 +38,19 @@ import Dhall.Syntax
     , FunctionBinding (..)
     , PreferAnnotation (..)
     , RecordField (..)
-    , WithComponent (..)
     , Var (..)
+    , WithComponent (..)
     )
+import Dhall.Syntax.Patterns (Expr (..))
 
 import qualified Data.Sequence
 import qualified Data.Set
-import qualified Data.Text     as Text
-import qualified Dhall.Eval    as Eval
+import qualified Data.Text         as Text
+import qualified Dhall.Eval        as Eval
 import qualified Dhall.Map
-import qualified Dhall.Syntax  as Syntax
-import qualified Lens.Family   as Lens
+import qualified Dhall.Syntax      as Syntax
+import qualified Dhall.Syntax.List as Builtins
+import qualified Lens.Family       as Lens
 
 {-| Returns `True` if two expressions are α-equivalent and β-equivalent and
     `False` otherwise
@@ -487,26 +489,26 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
     TimeLiteral t p -> pure (TimeLiteral t p)
     TimeZone -> pure TimeZone
     TimeZoneLiteral z -> pure (TimeZoneLiteral z)
-    List -> pure List
-    ListLit t es
+    ListExpr Builtins.List -> pure List
+    ListExpr (Builtins.ListLit t es)
         | Data.Sequence.null es -> ListLit <$> t' <*> pure Data.Sequence.empty
         | otherwise             -> ListLit Nothing <$> es'
       where
         t'  = traverse loop t
         es' = traverse loop es
-    ListAppend x y -> decide <$> loop x <*> loop y
+    ListExpr (Builtins.ListAppend x y) -> decide <$> loop x <*> loop y
       where
         decide (ListLit _ m)  r            | Data.Sequence.null m = r
         decide  l            (ListLit _ n) | Data.Sequence.null n = l
         decide (ListLit t m) (ListLit _ n)                        = ListLit t (m <> n)
         decide  l             r                                   = ListAppend l r
-    ListBuild -> pure ListBuild
-    ListFold -> pure ListFold
-    ListLength -> pure ListLength
-    ListHead -> pure ListHead
-    ListLast -> pure ListLast
-    ListIndexed -> pure ListIndexed
-    ListReverse -> pure ListReverse
+    ListExpr Builtins.ListBuild -> pure ListBuild
+    ListExpr Builtins.ListFold -> pure ListFold
+    ListExpr Builtins.ListLength -> pure ListLength
+    ListExpr Builtins.ListHead -> pure ListHead
+    ListExpr Builtins.ListLast -> pure ListLast
+    ListExpr Builtins.ListIndexed -> pure ListIndexed
+    ListExpr Builtins.ListReverse -> pure ListReverse
     Optional -> pure Optional
     Some a -> Some <$> a'
       where
@@ -886,21 +888,21 @@ isNormalized e0 = loop (Syntax.denote e0)
       TimeLiteral _ _ -> True
       TimeZone -> True
       TimeZoneLiteral _ -> True
-      List -> True
-      ListLit t es -> all loop t && all loop es
-      ListAppend x y -> loop x && loop y && decide x y
+      ListExpr Builtins.List -> True
+      ListExpr (Builtins.ListLit t es) -> all loop t && all loop es
+      ListExpr (Builtins.ListAppend x y) -> loop x && loop y && decide x y
         where
           decide (ListLit _ m)  _            | Data.Sequence.null m = False
           decide  _            (ListLit _ n) | Data.Sequence.null n = False
           decide (ListLit _ _) (ListLit _ _)                        = False
           decide  _             _                                   = True
-      ListBuild -> True
-      ListFold -> True
-      ListLength -> True
-      ListHead -> True
-      ListLast -> True
-      ListIndexed -> True
-      ListReverse -> True
+      ListExpr Builtins.ListBuild -> True
+      ListExpr Builtins.ListFold -> True
+      ListExpr Builtins.ListLength -> True
+      ListExpr Builtins.ListHead -> True
+      ListExpr Builtins.ListLast -> True
+      ListExpr Builtins.ListIndexed -> True
+      ListExpr Builtins.ListReverse -> True
       Optional -> True
       Some a -> loop a
       None -> True

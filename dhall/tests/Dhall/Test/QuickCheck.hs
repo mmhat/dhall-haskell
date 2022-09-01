@@ -97,6 +97,7 @@ import qualified Data.Time             as Time
 import qualified Dhall.Binary
 import qualified Dhall.Context
 import qualified Dhall.Core
+import qualified Dhall.Core.Builtins   as Builtins
 import qualified Dhall.Diff
 import qualified Dhall.Map
 import qualified Dhall.Parser          as Parser
@@ -390,16 +391,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "TimeLiteral")
             % (1 :: W "TimeZone")
             % (1 :: W "TimeZoneLiteral")
-            % (1 :: W "List")
-            % (1 :: W "ListLit")
-            % (1 :: W "ListAppend")
-            % (1 :: W "ListBuild")
-            % (1 :: W "ListFold")
-            % (1 :: W "ListLength")
-            % (1 :: W "ListHead")
-            % (1 :: W "ListLast")
-            % (1 :: W "ListIndexed")
-            % (1 :: W "ListReverse")
+            % (1 :: W "ListExpr")
             % (1 :: W "Optional")
             % (7 :: W "Some")
             % (1 :: W "None")
@@ -458,6 +450,22 @@ standardizedExpression (TimeLiteral (Time.TimeOfDay _ _ ss) precision) =
 
     isInteger x = x == fromInteger (round x)
 standardizedExpression _ =
+    True
+
+instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.ListExpr s a) where
+    arbitrary =
+        Test.QuickCheck.suchThat
+            (Generic.Random.genericArbitrary Generic.Random.uniform)
+            standardizedListExpression
+
+    shrink expression = filter standardizedListExpression (genericShrink expression)
+
+standardizedListExpression :: Builtins.ListExpr s a -> Bool
+standardizedListExpression (Builtins.ListLit  Nothing  xs) =
+    not (Data.Sequence.null xs)
+standardizedListExpression (Builtins.ListLit (Just _ ) xs) =
+    Data.Sequence.null xs
+standardizedListExpression _ =
     True
 
 chooseCharacter :: (Char, Char) -> Gen Char

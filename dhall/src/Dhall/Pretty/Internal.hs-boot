@@ -1,11 +1,11 @@
 module Dhall.Pretty.Internal where
 
-import Control.DeepSeq (NFData)
-import Data.Data (Data)
-import Data.Text (Text)
-import Prettyprinter (Pretty, Doc)
-import Dhall.Src (Src)
+import Control.DeepSeq            (NFData)
+import Data.Data                  (Data)
+import Data.Text                  (Text)
+import Dhall.Src                  (Src)
 import Language.Haskell.TH.Syntax (Lift)
+import Prettyprinter              (Doc, Pretty)
 
 import {-# SOURCE #-} Dhall.Syntax
 

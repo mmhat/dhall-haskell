@@ -21,6 +21,7 @@ module Dhall.TH
 import Data.Text                 (Text)
 import Dhall                     (FromDhall, ToDhall)
 import Dhall.Syntax              (Expr (..))
+import Dhall.Syntax.Patterns     (Expr (..))
 import GHC.Generics              (Generic)
 import Language.Haskell.TH.Quote (QuasiQuoter (..), dataToExpQ)
 import Prettyprinter             (Pretty)

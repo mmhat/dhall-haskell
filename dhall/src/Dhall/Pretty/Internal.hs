@@ -83,6 +83,7 @@ import Dhall.Map                  (Map)
 import Dhall.Optics               (cosmosOf, foldOf, to)
 import Dhall.Src                  (Src (..))
 import Dhall.Syntax
+import Dhall.Syntax.Patterns
 import GHC.Generics               (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 import Numeric.Natural            (Natural)

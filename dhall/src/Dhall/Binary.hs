@@ -21,12 +21,12 @@ module Dhall.Binary
     , DecodingFailure(..)
     ) where
 
-import Codec.CBOR.Decoding  (Decoder, TokenType (..))
-import Codec.CBOR.Encoding  (Encoding)
-import Codec.Serialise      (Serialise (decode, encode))
-import Control.Applicative  (empty, (<|>))
-import Control.Exception    (Exception)
-import Data.ByteString.Lazy (ByteString)
+import Codec.CBOR.Decoding   (Decoder, TokenType (..))
+import Codec.CBOR.Encoding   (Encoding)
+import Codec.Serialise       (Serialise (decode, encode))
+import Control.Applicative   (empty, (<|>))
+import Control.Exception     (Exception)
+import Data.ByteString.Lazy  (ByteString)
 import Dhall.Syntax
     ( Binding (..)
     , Chunks (..)
@@ -49,6 +49,7 @@ import Dhall.Syntax
     , Var (..)
     , WithComponent (..)
     )
+import Dhall.Syntax.Patterns (Expr (..))
 
 import Data.Foldable (toList)
 import Data.Ratio    ((%))
@@ -72,6 +73,7 @@ import qualified Data.Time             as Time
 import qualified Dhall.Crypto
 import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
+import qualified Dhall.Syntax.List     as Builtins
 import qualified Text.Printf           as Printf
 
 {-| Convert a function applied to multiple arguments to the base function and
@@ -713,25 +715,44 @@ encodeExpressionInternal encodeEmbed = go
         DoubleShow ->
             Encoding.encodeUtf8ByteArray "Double/show"
 
-        ListBuild ->
+        ListExpr Builtins.List ->
+            Encoding.encodeUtf8ByteArray "List"
+
+        ListExpr (Builtins.ListLit _T₀ xs)
+            | null xs ->
+                encodeList2 (Encoding.encodeInt label) _T₁
+            | otherwise ->
+                encodeListN
+                    (2 + length xs)
+                    ( Encoding.encodeInt 4
+                    : Encoding.encodeNull
+                    : map go (Data.Foldable.toList xs)
+                    )
+          where
+            (label, _T₁) = case _T₀ of
+                Nothing           -> (4 , Encoding.encodeNull)
+                Just (App List t) -> (4 , go t               )
+                Just  t           -> (28, go t               )
+
+        ListExpr Builtins.ListBuild ->
             Encoding.encodeUtf8ByteArray "List/build"
 
-        ListFold ->
+        ListExpr Builtins.ListFold ->
             Encoding.encodeUtf8ByteArray "List/fold"
 
-        ListLength ->
+        ListExpr Builtins.ListLength ->
             Encoding.encodeUtf8ByteArray "List/length"
 
-        ListHead ->
+        ListExpr Builtins.ListHead ->
             Encoding.encodeUtf8ByteArray "List/head"
 
-        ListLast ->
+        ListExpr Builtins.ListLast ->
             Encoding.encodeUtf8ByteArray "List/last"
 
-        ListIndexed ->
+        ListExpr Builtins.ListIndexed ->
             Encoding.encodeUtf8ByteArray "List/indexed"
 
-        ListReverse ->
+        ListExpr Builtins.ListReverse ->
             Encoding.encodeUtf8ByteArray "List/reverse"
 
         Bool ->
@@ -769,9 +790,6 @@ encodeExpressionInternal encodeEmbed = go
 
         TimeZone ->
             Encoding.encodeUtf8ByteArray "TimeZone"
-
-        List ->
-            Encoding.encodeUtf8ByteArray "List"
 
         Const Type ->
             Encoding.encodeUtf8ByteArray "Type"
@@ -839,7 +857,7 @@ encodeExpressionInternal encodeEmbed = go
         TextAppend l r ->
             encodeOperator 6 l r
 
-        ListAppend l r ->
+        ListExpr (Builtins.ListAppend l r) ->
             encodeOperator 7 l r
 
         Combine _ _ l r ->
@@ -859,22 +877,6 @@ encodeExpressionInternal encodeEmbed = go
 
         RecordCompletion l r ->
             encodeOperator 13 l r
-
-        ListLit _T₀ xs
-            | null xs ->
-                encodeList2 (Encoding.encodeInt label) _T₁
-            | otherwise ->
-                encodeListN
-                    (2 + length xs)
-                    ( Encoding.encodeInt 4
-                    : Encoding.encodeNull
-                    : map go (Data.Foldable.toList xs)
-                    )
-          where
-            (label, _T₁) = case _T₀ of
-                Nothing           -> (4 , Encoding.encodeNull)
-                Just (App List t) -> (4 , go t               )
-                Just  t           -> (28, go t               )
 
         Some t ->
             encodeList3

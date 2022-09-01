@@ -71,15 +71,17 @@ import Dhall.Syntax
     , Var (..)
     , WithComponent (..)
     )
+import Dhall.Syntax.Patterns (Expr (..))
 
 import qualified Data.Char
-import qualified Data.Sequence as Sequence
+import qualified Data.Sequence     as Sequence
 import qualified Data.Set
-import qualified Data.Text     as Text
-import qualified Data.Time     as Time
-import qualified Dhall.Map     as Map
+import qualified Data.Text         as Text
+import qualified Data.Time         as Time
+import qualified Dhall.Map         as Map
 import qualified Dhall.Set
-import qualified Dhall.Syntax  as Syntax
+import qualified Dhall.Syntax      as Syntax
+import qualified Dhall.Syntax.List as Builtins
 import qualified Text.Printf
 
 data Environment a
@@ -667,13 +669,13 @@ eval !env t0 =
             VTimeZone
         TimeZoneLiteral z ->
             VTimeZoneLiteral z
-        List ->
+        ListExpr Builtins.List ->
             VPrim VList
-        ListLit ma ts ->
+        ListExpr (Builtins.ListLit ma ts) ->
             VListLit (fmap (eval env) ma) (fmap (eval env) ts)
-        ListAppend t u ->
+        ListExpr (Builtins.ListAppend t u) ->
             vListAppend (eval env t) (eval env u)
-        ListBuild ->
+        ListExpr Builtins.ListBuild ->
             VPrim $ \a ->
             VPrim $ \case
                 VPrimVar ->
@@ -685,7 +687,7 @@ eval !env t0 =
                            vListAppend (VListLit Nothing (pure x)) as))
                     `vApp` VListLit (Just (VList a)) mempty
 
-        ListFold ->
+        ListExpr Builtins.ListFold ->
             VPrim $ \a ->
             VPrim $ \as ->
             VPrim $ \list ->
@@ -704,12 +706,12 @@ eval !env t0 =
                                 VListLit _ as' ->
                                     foldr' (\x b -> cons `vApp` x `vApp` b) nil as'
                                 _ -> inert
-        ListLength ->
+        ListExpr Builtins.ListLength ->
             VPrim $ \ a ->
             VPrim $ \case
                 VListLit _ as -> VNaturalLit (fromIntegral (Sequence.length as))
                 as            -> VListLength a as
-        ListHead ->
+        ListExpr Builtins.ListHead ->
             VPrim $ \ a ->
             VPrim $ \case
                 VListLit _ as ->
@@ -718,7 +720,7 @@ eval !env t0 =
                         _      -> VNone a
                 as ->
                     VListHead a as
-        ListLast ->
+        ListExpr Builtins.ListLast ->
             VPrim $ \ a ->
             VPrim $ \case
                 VListLit _ as ->
@@ -726,7 +728,7 @@ eval !env t0 =
                         _ :> t -> VSome t
                         _      -> VNone a
                 as -> VListLast a as
-        ListIndexed ->
+        ListExpr Builtins.ListIndexed ->
             VPrim $ \ a ->
             VPrim $ \case
                 VListLit _ as ->
@@ -750,7 +752,7 @@ eval !env t0 =
                         in  VListLit a' as'
                 t ->
                     VListIndexed a t
-        ListReverse ->
+        ListExpr Builtins.ListReverse ->
             VPrim $ \ ~a ->
             VPrim $ \case
                 VListLit t as | null as ->
@@ -1415,25 +1417,25 @@ alphaNormalize = goEnv EmptyNames
                 TimeZone
             TimeZoneLiteral z ->
                 TimeZoneLiteral z
-            List ->
+            ListExpr Builtins.List ->
                 List
-            ListLit ma ts ->
+            ListExpr (Builtins.ListLit ma ts) ->
                 ListLit (fmap go ma) (fmap go ts)
-            ListAppend t u ->
+            ListExpr (Builtins.ListAppend t u) ->
                 ListAppend (go t) (go u)
-            ListBuild ->
+            ListExpr Builtins.ListBuild ->
                 ListBuild
-            ListFold ->
+            ListExpr Builtins.ListFold ->
                 ListFold
-            ListLength ->
+            ListExpr Builtins.ListLength ->
                 ListLength
-            ListHead ->
+            ListExpr Builtins.ListHead ->
                 ListHead
-            ListLast ->
+            ListExpr Builtins.ListLast ->
                 ListLast
-            ListIndexed ->
+            ListExpr Builtins.ListIndexed ->
                 ListIndexed
-            ListReverse ->
+            ListExpr Builtins.ListReverse ->
                 ListReverse
             Optional ->
                 Optional

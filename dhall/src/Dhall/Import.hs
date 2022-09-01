@@ -188,6 +188,7 @@ import Dhall.Syntax
     , functionBindingExprs
     , recordFieldExprs
     )
+import Dhall.Syntax.Patterns (Expr (..))
 
 import System.FilePath ((</>))
 import Text.Megaparsec (SourcePos (SourcePos), mkPos)
@@ -235,8 +236,8 @@ import qualified System.AtomicWrite.Writer.ByteString.Binary as AtomicWrite.Bina
 import qualified System.Directory                            as Directory
 import qualified System.Environment
 import qualified System.FilePath                             as FilePath
-import qualified System.IO
 import qualified System.Info
+import qualified System.IO
 import qualified Text.Megaparsec
 import qualified Text.Parser.Combinators
 import qualified Text.Parser.Token

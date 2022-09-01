@@ -158,6 +158,7 @@ import Dhall.Syntax
     , FunctionBinding (..)
     , Var (..)
     )
+import Dhall.Syntax.Patterns            (Expr (..))
 import GHC.Generics
 import Prelude                          hiding (maybe, sequence)
 import Prettyprinter                    (Pretty)
