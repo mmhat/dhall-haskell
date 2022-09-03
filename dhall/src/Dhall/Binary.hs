@@ -74,6 +74,7 @@ import qualified Dhall.Crypto
 import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
 import qualified Dhall.Syntax.Bool     as Builtins
+import qualified Dhall.Syntax.Integer  as Builtins
 import qualified Dhall.Syntax.List     as Builtins
 import qualified Dhall.Syntax.Natural  as Builtins
 import qualified Dhall.Syntax.Text     as Builtins
@@ -703,16 +704,16 @@ encodeExpressionInternal encodeEmbed = go
         NaturalExpr Builtins.NaturalSubtract ->
             Encoding.encodeUtf8ByteArray "Natural/subtract"
 
-        IntegerToDouble ->
+        IntegerExpr Builtins.IntegerToDouble ->
             Encoding.encodeUtf8ByteArray "Integer/toDouble"
 
-        IntegerClamp ->
+        IntegerExpr Builtins.IntegerClamp ->
             Encoding.encodeUtf8ByteArray "Integer/clamp"
 
-        IntegerNegate ->
+        IntegerExpr Builtins.IntegerNegate ->
             Encoding.encodeUtf8ByteArray "Integer/negate"
 
-        IntegerShow ->
+        IntegerExpr Builtins.IntegerShow ->
             Encoding.encodeUtf8ByteArray "Integer/show"
 
         DoubleShow ->
@@ -770,7 +771,7 @@ encodeExpressionInternal encodeEmbed = go
         NaturalExpr Builtins.Natural ->
             Encoding.encodeUtf8ByteArray "Natural"
 
-        Integer ->
+        IntegerExpr Builtins.Integer ->
             Encoding.encodeUtf8ByteArray "Integer"
 
         Double ->
@@ -953,7 +954,7 @@ encodeExpressionInternal encodeEmbed = go
                 (Encoding.encodeInt 15)
                 (Encoding.encodeInteger (fromIntegral n))
 
-        IntegerLit n ->
+        IntegerExpr (Builtins.IntegerLit n) ->
             encodeList2
                 (Encoding.encodeInt 16)
                 (Encoding.encodeInteger (fromIntegral n))

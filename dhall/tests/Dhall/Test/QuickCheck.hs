@@ -352,12 +352,6 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (7 :: W "App")
             % (7 :: W "Let")
             % (1 :: W "Annot")
-            % (1 :: W "Integer")
-            % (7 :: W "IntegerLit")
-            % (1 :: W "IntegerClamp")
-            % (1 :: W "IntegerNegate")
-            % (1 :: W "IntegerShow")
-            % (1 :: W "IntegerToDouble")
             % (1 :: W "Double")
             % (7 :: W "DoubleLit")
             % (1 :: W "DoubleShow")
@@ -368,6 +362,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "TimeZone")
             % (1 :: W "TimeZoneLiteral")
             % (1 :: W "BoolExpr")
+            % (1 :: W "IntegerExpr")
             % (1 :: W "ListExpr")
             % (1 :: W "NaturalExpr")
             % (1 :: W "TextExpr")
@@ -464,6 +459,24 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.BoolExpr s a) where
 
     shrink = genericShrink
 
+instance Arbitrary Builtins.IntegerExpr where
+    arbitrary = Generic.Random.genericArbitrary weights
+      where
+        -- These weights determine the frequency of constructors in the generated
+        -- IntegerExpr.
+        -- They will fail to compile if the constructors don't appear in the order
+        -- in which they are defined in 'IntegerExpr'!
+        weights :: Weights Builtins.IntegerExpr
+        weights =
+              (1 :: W "Integer")
+            % (7 :: W "IntegerLit")
+            % (1 :: W "IntegerClamp")
+            % (1 :: W "IntegerNegate")
+            % (1 :: W "IntegerShow")
+            % (1 :: W "IntegerToDouble")
+            % ()
+
+    shrink = genericShrink
 
 instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.NaturalExpr s a) where
     arbitrary = Generic.Random.genericArbitrary weights

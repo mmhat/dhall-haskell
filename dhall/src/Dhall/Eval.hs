@@ -82,6 +82,7 @@ import qualified Dhall.Map            as Map
 import qualified Dhall.Set
 import qualified Dhall.Syntax         as Syntax
 import qualified Dhall.Syntax.Bool    as Builtins
+import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
@@ -574,27 +575,27 @@ eval !env t0 =
                 (_            , VNaturalLit 0) -> VNaturalLit 0
                 (VNaturalLit m, VNaturalLit n) -> VNaturalLit (m * n)
                 (t'           , u'           ) -> VNaturalTimes t' u'
-        Integer ->
+        IntegerExpr Builtins.Integer ->
             VInteger
-        IntegerLit n ->
+        IntegerExpr (Builtins.IntegerLit n) ->
             VIntegerLit n
-        IntegerClamp ->
+        IntegerExpr Builtins.IntegerClamp ->
             VPrim $ \case
                 VIntegerLit n
                     | 0 <= n    -> VNaturalLit (fromInteger n)
                     | otherwise -> VNaturalLit 0
                 n -> VIntegerClamp n
-        IntegerNegate ->
+        IntegerExpr Builtins.IntegerNegate ->
             VPrim $ \case
                 VIntegerLit n -> VIntegerLit (negate n)
                 n             -> VIntegerNegate n
-        IntegerShow ->
+        IntegerExpr Builtins.IntegerShow ->
             VPrim $ \case
                 VIntegerLit n
                     | 0 <= n    -> VTextLit (VChunks [] (Text.pack ('+':show n)))
                     | otherwise -> VTextLit (VChunks [] (Text.pack (show n)))
                 n -> VIntegerShow n
-        IntegerToDouble ->
+        IntegerExpr Builtins.IntegerToDouble ->
             VPrim $ \case
                 VIntegerLit n -> VDoubleLit (DhallDouble (read (show n)))
                 -- `(read . show)` is used instead of `fromInteger`
@@ -1380,17 +1381,17 @@ alphaNormalize = goEnv EmptyNames
                 NaturalPlus (go t) (go u)
             NaturalExpr (Builtins.NaturalTimes t u) ->
                 NaturalTimes (go t) (go u)
-            Integer ->
+            IntegerExpr Builtins.Integer ->
                 Integer
-            IntegerLit n ->
+            IntegerExpr (Builtins.IntegerLit n) ->
                 IntegerLit n
-            IntegerClamp ->
+            IntegerExpr Builtins.IntegerClamp ->
                 IntegerClamp
-            IntegerNegate ->
+            IntegerExpr Builtins.IntegerNegate ->
                 IntegerNegate
-            IntegerShow ->
+            IntegerExpr Builtins.IntegerShow ->
                 IntegerShow
-            IntegerToDouble ->
+            IntegerExpr Builtins.IntegerToDouble ->
                 IntegerToDouble
             Double ->
                 Double

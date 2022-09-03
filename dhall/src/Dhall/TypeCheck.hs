@@ -82,6 +82,7 @@ import qualified Dhall.Pretty
 import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
 import qualified Dhall.Syntax.Bool           as Builtins
+import qualified Dhall.Syntax.Integer        as Builtins
 import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Syntax.Natural        as Builtins
 import qualified Dhall.Syntax.Text           as Builtins
@@ -512,22 +513,22 @@ infer typer = loop
 
             return VNatural
 
-        Integer ->
+        IntegerExpr Builtins.Integer ->
             return (VConst Type)
 
-        IntegerLit _ ->
+        IntegerExpr (Builtins.IntegerLit _) ->
             return VInteger
 
-        IntegerClamp ->
+        IntegerExpr Builtins.IntegerClamp ->
             return (VInteger ~> VNatural)
 
-        IntegerNegate ->
+        IntegerExpr Builtins.IntegerNegate ->
             return (VInteger ~> VInteger)
 
-        IntegerShow ->
+        IntegerExpr Builtins.IntegerShow ->
             return (VInteger ~> VText)
 
-        IntegerToDouble ->
+        IntegerExpr Builtins.IntegerToDouble ->
             return (VInteger ~> VDouble)
 
         Double ->

@@ -5,6 +5,8 @@
 module Dhall.Core.Builtins
     ( -- * Bool builtins
       module Dhall.Syntax.Bool
+    , -- * Integer builtins
+      module Dhall.Syntax.Integer
     , -- * List builtins
       module Dhall.Syntax.List
     , -- * Natural builtins
@@ -14,6 +16,7 @@ module Dhall.Core.Builtins
     ) where
 
 import Dhall.Syntax.Bool    (BoolExpr (..))
+import Dhall.Syntax.Integer (IntegerExpr (..))
 import Dhall.Syntax.List    (ListExpr (..))
 import Dhall.Syntax.Natural (NaturalExpr (..))
 import Dhall.Syntax.Text    (TextExpr (..))

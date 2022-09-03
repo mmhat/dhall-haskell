@@ -114,6 +114,7 @@ import qualified Data.Text
 import qualified Data.Time            as Time
 import qualified Dhall.Crypto
 import qualified Dhall.Syntax.Bool
+import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Text
@@ -461,18 +462,6 @@ data Expr s a
     | Let (Binding s a) (Expr s a)
     -- | > Annot x t                                ~  x : t
     | Annot (Expr s a) (Expr s a)
-    -- | > Integer                                  ~  Integer
-    | Integer
-    -- | > IntegerLit n                             ~  ±n
-    | IntegerLit Integer
-    -- | > IntegerClamp                             ~  Integer/clamp
-    | IntegerClamp
-    -- | > IntegerNegate                            ~  Integer/negate
-    | IntegerNegate
-    -- | > IntegerShow                              ~  Integer/show
-    | IntegerShow
-    -- | > IntegerToDouble                          ~  Integer/toDouble
-    | IntegerToDouble
     -- | > Double                                   ~  Double
     | Double
     -- | > DoubleLit n                              ~  n
@@ -497,6 +486,8 @@ data Expr s a
     | TimeZoneLiteral Time.TimeZone
     -- | A builtin boolean expression
     | BoolExpr {-# UNPACK #-} !(Dhall.Syntax.Bool.BoolExpr s a)
+    -- | A builtin integer expression
+    | IntegerExpr {-# UNPACK #-} !Dhall.Syntax.Integer.IntegerExpr
     -- | A builtin list expression
     | ListExpr {-# UNPACK #-} !(Dhall.Syntax.List.ListExpr s a)
     -- | A builtin natural expression
@@ -729,12 +720,6 @@ unsafeSubExpressions _ (Var v) = pure (Var v)
 unsafeSubExpressions f (Pi cs a b c) = Pi cs a <$> f b <*> f c
 unsafeSubExpressions f (App a b) = App <$> f a <*> f b
 unsafeSubExpressions f (Annot a b) = Annot <$> f a <*> f b
-unsafeSubExpressions _ Integer = pure Integer
-unsafeSubExpressions _ (IntegerLit n) = pure (IntegerLit n)
-unsafeSubExpressions _ IntegerClamp = pure IntegerClamp
-unsafeSubExpressions _ IntegerNegate = pure IntegerNegate
-unsafeSubExpressions _ IntegerShow = pure IntegerShow
-unsafeSubExpressions _ IntegerToDouble = pure IntegerToDouble
 unsafeSubExpressions _ Double = pure Double
 unsafeSubExpressions _ (DoubleLit n) = pure (DoubleLit n)
 unsafeSubExpressions _ DoubleShow = pure DoubleShow
@@ -745,6 +730,7 @@ unsafeSubExpressions _ (TimeLiteral a b) = pure (TimeLiteral a b)
 unsafeSubExpressions _ TimeZone = pure TimeZone
 unsafeSubExpressions _ (TimeZoneLiteral a) = pure (TimeZoneLiteral a)
 unsafeSubExpressions f (BoolExpr expr) = BoolExpr <$> Dhall.Syntax.Bool.subExpressions f expr
+unsafeSubExpressions _ (IntegerExpr expr) = pure (IntegerExpr expr)
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
 unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
 unsafeSubExpressions f (TextExpr expr) = TextExpr <$> Dhall.Syntax.Text.subExpressions f expr
@@ -1114,18 +1100,13 @@ reservedKeywords =
 reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
     Dhall.Syntax.Bool.reservedIdentifiers <>
+    Dhall.Syntax.Integer.reservedIdentifiers <>
     Dhall.Syntax.List.reservedIdentifiers <>
     Dhall.Syntax.Natural.reservedIdentifiers <>
     Dhall.Syntax.Text.reservedIdentifiers <>
     Data.HashSet.fromList
         [ -- Builtins according to the `builtin` rule in the grammar
-          "Integer"
-        , "Integer/clamp"
-        , "Integer/negate"
-        , "Integer/show"
-        , "Integer/toDouble"
-        , "Integer/show"
-        , "Double/show"
+          "Double/show"
         , "Optional"
         , "None"
         , "Integer"

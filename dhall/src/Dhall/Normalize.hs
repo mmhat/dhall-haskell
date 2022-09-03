@@ -50,6 +50,7 @@ import qualified Dhall.Eval           as Eval
 import qualified Dhall.Map
 import qualified Dhall.Syntax         as Syntax
 import qualified Dhall.Syntax.Bool    as Builtins
+import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
@@ -459,12 +460,12 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
         decide  _             (NaturalLit 0) = NaturalLit 0
         decide (NaturalLit m) (NaturalLit n) = NaturalLit (m * n)
         decide  l              r             = NaturalTimes l r
-    Integer -> pure Integer
-    IntegerLit n -> pure (IntegerLit n)
-    IntegerClamp -> pure IntegerClamp
-    IntegerNegate -> pure IntegerNegate
-    IntegerShow -> pure IntegerShow
-    IntegerToDouble -> pure IntegerToDouble
+    IntegerExpr Builtins.Integer -> pure Integer
+    IntegerExpr (Builtins.IntegerLit n) -> pure (IntegerLit n)
+    IntegerExpr Builtins.IntegerClamp -> pure IntegerClamp
+    IntegerExpr Builtins.IntegerNegate -> pure IntegerNegate
+    IntegerExpr Builtins.IntegerShow -> pure IntegerShow
+    IntegerExpr Builtins.IntegerToDouble -> pure IntegerToDouble
     Double -> pure Double
     DoubleLit n -> pure (DoubleLit n)
     DoubleShow -> pure DoubleShow
@@ -866,12 +867,12 @@ isNormalized e0 = loop (Syntax.denote e0)
           decide  _             (NaturalLit 1) = False
           decide (NaturalLit _) (NaturalLit _) = False
           decide  _              _             = True
-      Integer -> True
-      IntegerLit _ -> True
-      IntegerClamp -> True
-      IntegerNegate -> True
-      IntegerShow -> True
-      IntegerToDouble -> True
+      IntegerExpr Builtins.Integer -> True
+      IntegerExpr (Builtins.IntegerLit _) -> True
+      IntegerExpr Builtins.IntegerClamp -> True
+      IntegerExpr Builtins.IntegerNegate -> True
+      IntegerExpr Builtins.IntegerShow -> True
+      IntegerExpr Builtins.IntegerToDouble -> True
       Double -> True
       DoubleLit _ -> True
       DoubleShow -> True

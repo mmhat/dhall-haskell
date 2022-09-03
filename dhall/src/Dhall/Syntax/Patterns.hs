@@ -13,6 +13,12 @@ module Dhall.Syntax.Patterns (
         , BoolIf
         , BoolNE
         , BoolOr
+        , Integer
+        , IntegerLit
+        , IntegerClamp
+        , IntegerNegate
+        , IntegerShow
+        , IntegerToDouble
         , List
         , ListLit
         , ListAppend
@@ -49,6 +55,7 @@ import Dhall.Syntax.Text (Chunks)
 import Numeric.Natural   (Natural)
 
 import qualified Dhall.Syntax.Bool
+import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Text
@@ -84,6 +91,34 @@ pattern BoolNE x y = BoolExpr (Dhall.Syntax.Bool.BoolNE x y)
 -- | > BoolIf x y z  ~  if x then y else z
 pattern BoolIf :: Expr s a -> Expr s a -> Expr s a -> Expr s a
 pattern BoolIf b t f = BoolExpr (Dhall.Syntax.Bool.BoolIf b t f)
+
+--------------------------------------------------------------------------------
+-- Integer builtin
+--------------------------------------------------------------------------------
+
+-- | > Integer  ~  Integer
+pattern Integer :: Expr s a
+pattern Integer = IntegerExpr Dhall.Syntax.Integer.Integer
+
+-- | > IntegerLit n  ~  ±n
+pattern IntegerLit :: Integer -> Expr s a
+pattern IntegerLit i = IntegerExpr (Dhall.Syntax.Integer.IntegerLit i)
+
+-- | > IntegerClamp  ~  Integer/clamp
+pattern IntegerClamp :: Expr s a
+pattern IntegerClamp = IntegerExpr Dhall.Syntax.Integer.IntegerClamp
+
+-- | > IntegerNegate  ~  Integer/negate
+pattern IntegerNegate :: Expr s a
+pattern IntegerNegate = IntegerExpr Dhall.Syntax.Integer.IntegerNegate
+
+-- | > IntegerShow  ~  Integer/show
+pattern IntegerShow :: Expr s a
+pattern IntegerShow = IntegerExpr Dhall.Syntax.Integer.IntegerShow
+
+-- | > IntegerToDouble  ~  Integer/toDouble
+pattern IntegerToDouble :: Expr s a
+pattern IntegerToDouble = IntegerExpr Dhall.Syntax.Integer.IntegerToDouble
 
 --------------------------------------------------------------------------------
 -- List builtin
