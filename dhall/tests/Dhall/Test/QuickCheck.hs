@@ -352,13 +352,6 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (7 :: W "App")
             % (7 :: W "Let")
             % (1 :: W "Annot")
-            % (1 :: W "Bool")
-            % (7 :: W "BoolLit")
-            % (1 :: W "BoolAnd")
-            % (1 :: W "BoolOr")
-            % (1 :: W "BoolEQ")
-            % (1 :: W "BoolNE")
-            % (1 :: W "BoolIf")
             % (1 :: W "Integer")
             % (7 :: W "IntegerLit")
             % (1 :: W "IntegerClamp")
@@ -374,6 +367,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "TimeLiteral")
             % (1 :: W "TimeZone")
             % (1 :: W "TimeZoneLiteral")
+            % (1 :: W "BoolExpr")
             % (1 :: W "ListExpr")
             % (1 :: W "NaturalExpr")
             % (1 :: W "TextExpr")
@@ -449,6 +443,27 @@ standardizedListExpression (Builtins.ListLit (Just _ ) xs) =
     Data.Sequence.null xs
 standardizedListExpression _ =
     True
+
+instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.BoolExpr s a) where
+    arbitrary = Generic.Random.genericArbitrary weights
+      where
+        -- These weights determine the frequency of constructors in the generated
+        -- BoolExpr.
+        -- They will fail to compile if the constructors don't appear in the order
+        -- in which they are defined in 'BoolExpr'!
+        weights :: Weights (Builtins.BoolExpr s a)
+        weights =
+              (1 :: W "Bool")
+            % (7 :: W "BoolLit")
+            % (1 :: W "BoolAnd")
+            % (1 :: W "BoolOr")
+            % (1 :: W "BoolEQ")
+            % (1 :: W "BoolNE")
+            % (1 :: W "BoolIf")
+            % ()
+
+    shrink = genericShrink
+
 
 instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.NaturalExpr s a) where
     arbitrary = Generic.Random.genericArbitrary weights

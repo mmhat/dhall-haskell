@@ -6,7 +6,14 @@
 
 module Dhall.Syntax.Patterns (
     Expr
-        ( List
+        ( Bool
+        , BoolLit
+        , BoolAnd
+        , BoolEQ
+        , BoolIf
+        , BoolNE
+        , BoolOr
+        , List
         , ListLit
         , ListAppend
         , ListBuild
@@ -41,9 +48,42 @@ import Dhall.Syntax      (Expr (..))
 import Dhall.Syntax.Text (Chunks)
 import Numeric.Natural   (Natural)
 
+import qualified Dhall.Syntax.Bool
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Text
+
+--------------------------------------------------------------------------------
+-- Bool builtin
+--------------------------------------------------------------------------------
+
+-- | > Bool  ~  Bool
+pattern Bool :: Expr s a
+pattern Bool = BoolExpr Dhall.Syntax.Bool.Bool
+
+-- | > BoolLit b  ~  b
+pattern BoolLit :: Bool -> Expr s a
+pattern BoolLit b = BoolExpr (Dhall.Syntax.Bool.BoolLit b)
+
+-- | > BoolAnd x y  ~  x && y
+pattern BoolAnd :: Expr s a -> Expr s a -> Expr s a
+pattern BoolAnd x y = BoolExpr (Dhall.Syntax.Bool.BoolAnd x y)
+
+-- | > BoolOr x y  ~  x || y
+pattern BoolOr :: Expr s a -> Expr s a -> Expr s a
+pattern BoolOr x y = BoolExpr (Dhall.Syntax.Bool.BoolOr x y)
+
+-- | > BoolEQ x y  ~  x == y
+pattern BoolEQ :: Expr s a -> Expr s a -> Expr s a
+pattern BoolEQ x y = BoolExpr (Dhall.Syntax.Bool.BoolEQ x y)
+
+-- | > BoolNE x y  ~  x != y
+pattern BoolNE :: Expr s a -> Expr s a -> Expr s a
+pattern BoolNE x y = BoolExpr (Dhall.Syntax.Bool.BoolNE x y)
+
+-- | > BoolIf x y z  ~  if x then y else z
+pattern BoolIf :: Expr s a -> Expr s a -> Expr s a -> Expr s a
+pattern BoolIf b t f = BoolExpr (Dhall.Syntax.Bool.BoolIf b t f)
 
 --------------------------------------------------------------------------------
 -- List builtin

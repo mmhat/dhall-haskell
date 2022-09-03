@@ -49,6 +49,7 @@ import qualified Data.Text            as Text
 import qualified Dhall.Eval           as Eval
 import qualified Dhall.Map
 import qualified Dhall.Syntax         as Syntax
+import qualified Dhall.Syntax.Bool    as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
@@ -392,9 +393,9 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
         b'  = subst (V f 0) r' b
         b'' = Syntax.shift (-1) (V f 0) b'
     Annot x _ -> loop x
-    Bool -> pure Bool
-    BoolLit b -> pure (BoolLit b)
-    BoolAnd x y -> decide <$> loop x <*> loop y
+    BoolExpr Builtins.Bool -> pure Bool
+    BoolExpr (Builtins.BoolLit b) -> pure (BoolLit b)
+    BoolExpr (Builtins.BoolAnd x y) -> decide <$> loop x <*> loop y
       where
         decide (BoolLit True )  r              = r
         decide (BoolLit False)  _              = BoolLit False
@@ -403,7 +404,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
         decide  l               r
             | Eval.judgmentallyEqual l r = l
             | otherwise                  = BoolAnd l r
-    BoolOr x y -> decide <$> loop x <*> loop y
+    BoolExpr (Builtins.BoolOr x y) -> decide <$> loop x <*> loop y
       where
         decide (BoolLit False)  r              = r
         decide (BoolLit True )  _              = BoolLit True
@@ -412,21 +413,21 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
         decide  l               r
             | Eval.judgmentallyEqual l r = l
             | otherwise                  = BoolOr l r
-    BoolEQ x y -> decide <$> loop x <*> loop y
+    BoolExpr (Builtins.BoolEQ x y) -> decide <$> loop x <*> loop y
       where
         decide (BoolLit True )  r              = r
         decide  l              (BoolLit True ) = l
         decide  l               r
             | Eval.judgmentallyEqual l r = BoolLit True
             | otherwise                  = BoolEQ l r
-    BoolNE x y -> decide <$> loop x <*> loop y
+    BoolExpr (Builtins.BoolNE x y) -> decide <$> loop x <*> loop y
       where
         decide (BoolLit False)  r              = r
         decide  l              (BoolLit False) = l
         decide  l               r
             | Eval.judgmentallyEqual l r = BoolLit False
             | otherwise                  = BoolNE l r
-    BoolIf bool true false -> decide <$> loop bool <*> loop true <*> loop false
+    BoolExpr (Builtins.BoolIf bool true false) -> decide <$> loop bool <*> loop true <*> loop false
       where
         decide (BoolLit True )  l              _              = l
         decide (BoolLit False)  _              r              = r
@@ -813,29 +814,29 @@ isNormalized e0 = loop (Syntax.denote e0)
           _ -> True
       Let _ _ -> False
       Annot _ _ -> False
-      Bool -> True
-      BoolLit _ -> True
-      BoolAnd x y -> loop x && loop y && decide x y
+      BoolExpr Builtins.Bool -> True
+      BoolExpr (Builtins.BoolLit _) -> True
+      BoolExpr (Builtins.BoolAnd x y) -> loop x && loop y && decide x y
         where
           decide (BoolLit _)  _          = False
           decide  _          (BoolLit _) = False
           decide  l           r          = not (Eval.judgmentallyEqual l r)
-      BoolOr x y -> loop x && loop y && decide x y
+      BoolExpr (Builtins.BoolOr x y) -> loop x && loop y && decide x y
         where
           decide (BoolLit _)  _          = False
           decide  _          (BoolLit _) = False
           decide  l           r          = not (Eval.judgmentallyEqual l r)
-      BoolEQ x y -> loop x && loop y && decide x y
+      BoolExpr (Builtins.BoolEQ x y) -> loop x && loop y && decide x y
         where
           decide (BoolLit True)  _             = False
           decide  _             (BoolLit True) = False
           decide  l              r             = not (Eval.judgmentallyEqual l r)
-      BoolNE x y -> loop x && loop y && decide x y
+      BoolExpr (Builtins.BoolNE x y) -> loop x && loop y && decide x y
         where
           decide (BoolLit False)  _               = False
           decide  _              (BoolLit False ) = False
           decide  l               r               = not (Eval.judgmentallyEqual l r)
-      BoolIf x y z ->
+      BoolExpr (Builtins.BoolIf x y z) ->
           loop x && loop y && loop z && decide x y z
         where
           decide (BoolLit _)  _              _              = False

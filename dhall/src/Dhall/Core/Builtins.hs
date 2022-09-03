@@ -3,7 +3,9 @@
  - literal of that type and the builtin functions connected to that type.
 -}
 module Dhall.Core.Builtins
-    ( -- * List builtins
+    ( -- * Bool builtins
+      module Dhall.Syntax.Bool
+    , -- * List builtins
       module Dhall.Syntax.List
     , -- * Natural builtins
       module Dhall.Syntax.Natural
@@ -11,6 +13,7 @@ module Dhall.Core.Builtins
       module Dhall.Syntax.Text
     ) where
 
+import Dhall.Syntax.Bool    (BoolExpr (..))
 import Dhall.Syntax.List    (ListExpr (..))
 import Dhall.Syntax.Natural (NaturalExpr (..))
 import Dhall.Syntax.Text    (TextExpr (..))

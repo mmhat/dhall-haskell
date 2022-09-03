@@ -81,6 +81,7 @@ import qualified Data.Time            as Time
 import qualified Dhall.Map            as Map
 import qualified Dhall.Set
 import qualified Dhall.Syntax         as Syntax
+import qualified Dhall.Syntax.Bool    as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
@@ -455,11 +456,11 @@ eval !env t0 =
             in  eval env' b
         Annot t _ ->
             eval env t
-        Bool ->
+        BoolExpr Builtins.Bool ->
             VBool
-        BoolLit b ->
+        BoolExpr (Builtins.BoolLit b) ->
             VBoolLit b
-        BoolAnd t u ->
+        BoolExpr (Builtins.BoolAnd t u) ->
             case (eval env t, eval env u) of
                 (VBoolLit True, u')       -> u'
                 (VBoolLit False, _)       -> VBoolLit False
@@ -467,7 +468,7 @@ eval !env t0 =
                 (_ , VBoolLit False)      -> VBoolLit False
                 (t', u') | conv env t' u' -> t'
                 (t', u')                  -> VBoolAnd t' u'
-        BoolOr t u ->
+        BoolExpr (Builtins.BoolOr t u) ->
             case (eval env t, eval env u) of
                 (VBoolLit False, u')      -> u'
                 (VBoolLit True, _)        -> VBoolLit True
@@ -475,19 +476,19 @@ eval !env t0 =
                 (_ , VBoolLit True)       -> VBoolLit True
                 (t', u') | conv env t' u' -> t'
                 (t', u')                  -> VBoolOr t' u'
-        BoolEQ t u ->
+        BoolExpr (Builtins.BoolEQ t u) ->
             case (eval env t, eval env u) of
                 (VBoolLit True, u')       -> u'
                 (t', VBoolLit True)       -> t'
                 (t', u') | conv env t' u' -> VBoolLit True
                 (t', u')                  -> VBoolEQ t' u'
-        BoolNE t u ->
+        BoolExpr (Builtins.BoolNE t u) ->
             case (eval env t, eval env u) of
                 (VBoolLit False, u')      -> u'
                 (t', VBoolLit False)      -> t'
                 (t', u') | conv env t' u' -> VBoolLit False
                 (t', u')                  -> VBoolNE t' u'
-        BoolIf b t f ->
+        BoolExpr (Builtins.BoolIf b t f) ->
             case (eval env b, eval env t, eval env f) of
                 (VBoolLit True,  t', _ )            -> t'
                 (VBoolLit False, _ , f')            -> f'
@@ -1341,19 +1342,19 @@ alphaNormalize = goEnv EmptyNames
                 Let (Binding src0 "_" src1 (fmap (fmap go) mA) src2 (go a)) (goBind x b)
             Annot t u ->
                 Annot (go t) (go u)
-            Bool ->
+            BoolExpr Builtins.Bool ->
                 Bool
-            BoolLit b ->
+            BoolExpr (Builtins.BoolLit b) ->
                 BoolLit b
-            BoolAnd t u ->
+            BoolExpr (Builtins.BoolAnd t u) ->
                 BoolAnd (go t) (go u)
-            BoolOr t u ->
-                BoolOr  (go t) (go u)
-            BoolEQ t u ->
+            BoolExpr (Builtins.BoolOr t u) ->
+                BoolOr (go t) (go u)
+            BoolExpr (Builtins.BoolEQ t u) ->
                 BoolEQ  (go t) (go u)
-            BoolNE t u ->
+            BoolExpr (Builtins.BoolNE t u) ->
                 BoolNE  (go t) (go u)
-            BoolIf b t f ->
+            BoolExpr (Builtins.BoolIf b t f) ->
                 BoolIf  (go b) (go t) (go f)
             NaturalExpr Builtins.Natural ->
                 Natural

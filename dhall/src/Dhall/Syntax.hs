@@ -100,7 +100,6 @@ import                Data.Void                  (Void)
 import                Dhall.Map                  (Map)
 import {-# SOURCE #-} Dhall.Pretty.Internal
 import                Dhall.Src                  (Src (..))
-import                Dhall.Syntax.Text          (Chunks (..))
 import                GHC.Generics               (Generic)
 import                Instances.TH.Lift          ()
 import                Language.Haskell.TH.Syntax (Lift)
@@ -114,6 +113,7 @@ import qualified Data.List.NonEmpty   as NonEmpty
 import qualified Data.Text
 import qualified Data.Time            as Time
 import qualified Dhall.Crypto
+import qualified Dhall.Syntax.Bool
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Text
@@ -461,20 +461,6 @@ data Expr s a
     | Let (Binding s a) (Expr s a)
     -- | > Annot x t                                ~  x : t
     | Annot (Expr s a) (Expr s a)
-    -- | > Bool                                     ~  Bool
-    | Bool
-    -- | > BoolLit b                                ~  b
-    | BoolLit Bool
-    -- | > BoolAnd x y                              ~  x && y
-    | BoolAnd (Expr s a) (Expr s a)
-    -- | > BoolOr  x y                              ~  x || y
-    | BoolOr  (Expr s a) (Expr s a)
-    -- | > BoolEQ  x y                              ~  x == y
-    | BoolEQ  (Expr s a) (Expr s a)
-    -- | > BoolNE  x y                              ~  x != y
-    | BoolNE  (Expr s a) (Expr s a)
-    -- | > BoolIf x y z                             ~  if x then y else z
-    | BoolIf (Expr s a) (Expr s a) (Expr s a)
     -- | > Integer                                  ~  Integer
     | Integer
     -- | > IntegerLit n                             ~  ±n
@@ -509,6 +495,8 @@ data Expr s a
     -- | > TimeZoneLiteral (TimeZone ( 60 * _HH + _MM) _ _) ~ +HH:MM
     -- | > TimeZoneLiteral (TimeZone (-60 * _HH + _MM) _ _) ~ -HH:MM
     | TimeZoneLiteral Time.TimeZone
+    -- | A builtin boolean expression
+    | BoolExpr {-# UNPACK #-} !(Dhall.Syntax.Bool.BoolExpr s a)
     -- | A builtin list expression
     | ListExpr {-# UNPACK #-} !(Dhall.Syntax.List.ListExpr s a)
     -- | A builtin natural expression
@@ -741,13 +729,6 @@ unsafeSubExpressions _ (Var v) = pure (Var v)
 unsafeSubExpressions f (Pi cs a b c) = Pi cs a <$> f b <*> f c
 unsafeSubExpressions f (App a b) = App <$> f a <*> f b
 unsafeSubExpressions f (Annot a b) = Annot <$> f a <*> f b
-unsafeSubExpressions _ Bool = pure Bool
-unsafeSubExpressions _ (BoolLit b) = pure (BoolLit b)
-unsafeSubExpressions f (BoolAnd a b) = BoolAnd <$> f a <*> f b
-unsafeSubExpressions f (BoolOr a b) = BoolOr <$> f a <*> f b
-unsafeSubExpressions f (BoolEQ a b) = BoolEQ <$> f a <*> f b
-unsafeSubExpressions f (BoolNE a b) = BoolNE <$> f a <*> f b
-unsafeSubExpressions f (BoolIf a b c) = BoolIf <$> f a <*> f b <*> f c
 unsafeSubExpressions _ Integer = pure Integer
 unsafeSubExpressions _ (IntegerLit n) = pure (IntegerLit n)
 unsafeSubExpressions _ IntegerClamp = pure IntegerClamp
@@ -763,6 +744,7 @@ unsafeSubExpressions _ Time = pure Time
 unsafeSubExpressions _ (TimeLiteral a b) = pure (TimeLiteral a b)
 unsafeSubExpressions _ TimeZone = pure TimeZone
 unsafeSubExpressions _ (TimeZoneLiteral a) = pure (TimeZoneLiteral a)
+unsafeSubExpressions f (BoolExpr expr) = BoolExpr <$> Dhall.Syntax.Bool.subExpressions f expr
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
 unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
 unsafeSubExpressions f (TextExpr expr) = TextExpr <$> Dhall.Syntax.Text.subExpressions f expr
@@ -1131,6 +1113,7 @@ reservedKeywords =
 -- | Contains also all keywords from "reservedKeywords"
 reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
+    Dhall.Syntax.Bool.reservedIdentifiers <>
     Dhall.Syntax.List.reservedIdentifiers <>
     Dhall.Syntax.Natural.reservedIdentifiers <>
     Dhall.Syntax.Text.reservedIdentifiers <>
@@ -1143,9 +1126,6 @@ reservedIdentifiers = reservedKeywords <>
         , "Integer/toDouble"
         , "Integer/show"
         , "Double/show"
-        , "Bool"
-        , "True"
-        , "False"
         , "Optional"
         , "None"
         , "Integer"

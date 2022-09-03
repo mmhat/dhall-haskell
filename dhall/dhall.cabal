@@ -361,6 +361,7 @@ Library
         Dhall.Parser.Combinators
         Dhall.Pretty.Internal
         Dhall.Syntax
+        Dhall.Syntax.Bool
         Dhall.Syntax.List
         Dhall.Syntax.Natural
         Dhall.Syntax.Patterns

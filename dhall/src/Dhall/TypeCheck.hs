@@ -81,6 +81,7 @@ import qualified Dhall.Map
 import qualified Dhall.Pretty
 import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
+import qualified Dhall.Syntax.Bool           as Builtins
 import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Syntax.Natural        as Builtins
 import qualified Dhall.Syntax.Text           as Builtins
@@ -342,13 +343,13 @@ infer typer = loop
                     let _T₁'' = quote names _T₁'
                     die (AnnotMismatch t _T₀'' _T₁'')
 
-        Bool ->
+        BoolExpr Builtins.Bool ->
             return (VConst Type)
 
-        BoolLit _ ->
+        BoolExpr (Builtins.BoolLit _) ->
             return VBool
 
-        BoolAnd l r -> do
+        BoolExpr (Builtins.BoolAnd l r) -> do
             tl' <- loop ctx l
 
             case tl' of
@@ -363,7 +364,7 @@ infer typer = loop
 
             return VBool
 
-        BoolOr l r -> do
+        BoolExpr (Builtins.BoolOr l r) -> do
             tl' <- loop ctx l
 
             case tl' of
@@ -378,7 +379,7 @@ infer typer = loop
 
             return VBool
 
-        BoolEQ l r -> do
+        BoolExpr (Builtins.BoolEQ l r) -> do
             tl' <- loop ctx l
 
             case tl' of
@@ -393,7 +394,7 @@ infer typer = loop
 
             return VBool
 
-        BoolNE l r -> do
+        BoolExpr (Builtins.BoolNE l r) -> do
             tl' <- loop ctx l
 
             case tl' of
@@ -408,7 +409,7 @@ infer typer = loop
 
             return VBool
 
-        BoolIf t l r -> do
+        BoolExpr (Builtins.BoolIf t l r) -> do
             tt' <- loop ctx t
 
             case tt' of

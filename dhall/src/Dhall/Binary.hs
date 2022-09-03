@@ -73,6 +73,7 @@ import qualified Data.Time             as Time
 import qualified Dhall.Crypto
 import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
+import qualified Dhall.Syntax.Bool     as Builtins
 import qualified Dhall.Syntax.List     as Builtins
 import qualified Dhall.Syntax.Natural  as Builtins
 import qualified Dhall.Syntax.Text     as Builtins
@@ -757,7 +758,7 @@ encodeExpressionInternal encodeEmbed = go
         ListExpr Builtins.ListReverse ->
             Encoding.encodeUtf8ByteArray "List/reverse"
 
-        Bool ->
+        BoolExpr Builtins.Bool ->
             Encoding.encodeUtf8ByteArray "Bool"
 
         Optional ->
@@ -838,16 +839,16 @@ encodeExpressionInternal encodeEmbed = go
                 (go _A)
                 (go _B)
 
-        BoolOr l r ->
+        BoolExpr (Builtins.BoolOr l r) ->
             encodeOperator 0 l r
 
-        BoolAnd l r ->
+        BoolExpr (Builtins.BoolAnd l r) ->
             encodeOperator 1 l r
 
-        BoolEQ l r ->
+        BoolExpr (Builtins.BoolEQ l r) ->
             encodeOperator 2 l r
 
-        BoolNE l r ->
+        BoolExpr (Builtins.BoolNE l r) ->
             encodeOperator 3 l r
 
         NaturalExpr (Builtins.NaturalPlus l r) ->
@@ -937,10 +938,10 @@ encodeExpressionInternal encodeEmbed = go
             encodeValue  Nothing  = Encoding.encodeNull
             encodeValue (Just _T) = go _T
 
-        BoolLit b ->
+        BoolExpr (Builtins.BoolLit b) ->
             Encoding.encodeBool b
 
-        BoolIf t l r ->
+        BoolExpr (Builtins.BoolIf t l r) ->
             encodeList4
                 (Encoding.encodeInt 14)
                 (go t)
