@@ -16,6 +16,18 @@ module Dhall.Syntax.Patterns (
         , ListLast
         , ListIndexed
         , ListReverse
+        , Natural
+        , NaturalLit
+        , NaturalFold
+        , NaturalBuild
+        , NaturalIsZero
+        , NaturalEven
+        , NaturalOdd
+        , NaturalToInteger
+        , NaturalShow
+        , NaturalSubtract
+        , NaturalPlus
+        , NaturalTimes
         , Text
         , TextLit
         , TextAppend
@@ -27,8 +39,10 @@ module Dhall.Syntax.Patterns (
 import Data.Sequence     (Seq)
 import Dhall.Syntax      (Expr (..))
 import Dhall.Syntax.Text (Chunks)
+import Numeric.Natural   (Natural)
 
 import qualified Dhall.Syntax.List
+import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Text
 
 --------------------------------------------------------------------------------
@@ -87,6 +101,58 @@ pattern ListIndexed = ListExpr Dhall.Syntax.List.ListIndexed
 -- | > ListReverse  ~  List/reverse
 pattern ListReverse :: Expr s a
 pattern ListReverse = ListExpr Dhall.Syntax.List.ListReverse
+
+--------------------------------------------------------------------------------
+-- Natural builtin
+--------------------------------------------------------------------------------
+
+-- | > Natural  ~  Natural
+pattern Natural :: Expr s a
+pattern Natural = NaturalExpr Dhall.Syntax.Natural.Natural
+
+-- | > NaturalLit n  ~  n
+pattern NaturalLit :: Natural -> Expr s a
+pattern NaturalLit n = NaturalExpr (Dhall.Syntax.Natural.NaturalLit n)
+
+-- | > NaturalFold  ~  Natural/fold
+pattern NaturalFold :: Expr s a
+pattern NaturalFold = NaturalExpr Dhall.Syntax.Natural.NaturalFold
+
+-- | > NaturalBuild  ~  Natural/build
+pattern NaturalBuild :: Expr s a
+pattern NaturalBuild = NaturalExpr Dhall.Syntax.Natural.NaturalBuild
+
+-- | > NaturalIsZero  ~  Natural/isZero
+pattern NaturalIsZero :: Expr s a
+pattern NaturalIsZero = NaturalExpr Dhall.Syntax.Natural.NaturalIsZero
+
+-- | > NaturalEven  ~  Natural/even
+pattern NaturalEven :: Expr s a
+pattern NaturalEven = NaturalExpr Dhall.Syntax.Natural.NaturalEven
+
+-- | > NaturalOdd  ~  Natural/odd
+pattern NaturalOdd :: Expr s a
+pattern NaturalOdd = NaturalExpr Dhall.Syntax.Natural.NaturalOdd
+
+-- | > NaturalToInteger  ~  Natural/toInteger
+pattern NaturalToInteger :: Expr s a
+pattern NaturalToInteger = NaturalExpr Dhall.Syntax.Natural.NaturalToInteger
+
+-- | > NaturalShow  ~  Natural/show
+pattern NaturalShow :: Expr s a
+pattern NaturalShow = NaturalExpr Dhall.Syntax.Natural.NaturalShow
+
+-- | > NaturalSubtract  ~  Natural/subtract
+pattern NaturalSubtract :: Expr s a
+pattern NaturalSubtract = NaturalExpr Dhall.Syntax.Natural.NaturalSubtract
+
+-- | > NaturalPlus x y  ~  x + y
+pattern NaturalPlus :: Expr s a -> Expr s a -> Expr s a
+pattern NaturalPlus x y = NaturalExpr (Dhall.Syntax.Natural.NaturalPlus x y)
+
+-- | > NaturalTimes x y  ~  x * y
+pattern NaturalTimes :: Expr s a -> Expr s a -> Expr s a
+pattern NaturalTimes x y = NaturalExpr (Dhall.Syntax.Natural.NaturalTimes x y)
 
 --------------------------------------------------------------------------------
 -- Text builtin

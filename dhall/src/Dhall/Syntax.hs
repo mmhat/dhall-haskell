@@ -104,22 +104,22 @@ import                Dhall.Syntax.Text          (Chunks (..))
 import                GHC.Generics               (Generic)
 import                Instances.TH.Lift          ()
 import                Language.Haskell.TH.Syntax (Lift)
-import                Numeric.Natural            (Natural)
 import                Prettyprinter              (Doc, Pretty)
 import                Unsafe.Coerce              (unsafeCoerce)
 
 import qualified Control.Monad
-import qualified Data.Fixed         as Fixed
+import qualified Data.Fixed           as Fixed
 import qualified Data.HashSet
-import qualified Data.List.NonEmpty as NonEmpty
+import qualified Data.List.NonEmpty   as NonEmpty
 import qualified Data.Text
-import qualified Data.Time          as Time
+import qualified Data.Time            as Time
 import qualified Dhall.Crypto
 import qualified Dhall.Syntax.List
+import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Text
-import qualified Lens.Family        as Lens
-import qualified Network.URI        as URI
-import qualified Prettyprinter      as Pretty
+import qualified Lens.Family          as Lens
+import qualified Network.URI          as URI
+import qualified Prettyprinter        as Pretty
 
 deriving instance Lift Time.Day
 deriving instance Lift Time.TimeOfDay
@@ -475,30 +475,6 @@ data Expr s a
     | BoolNE  (Expr s a) (Expr s a)
     -- | > BoolIf x y z                             ~  if x then y else z
     | BoolIf (Expr s a) (Expr s a) (Expr s a)
-    -- | > Natural                                  ~  Natural
-    | Natural
-    -- | > NaturalLit n                             ~  n
-    | NaturalLit Natural
-    -- | > NaturalFold                              ~  Natural/fold
-    | NaturalFold
-    -- | > NaturalBuild                             ~  Natural/build
-    | NaturalBuild
-    -- | > NaturalIsZero                            ~  Natural/isZero
-    | NaturalIsZero
-    -- | > NaturalEven                              ~  Natural/even
-    | NaturalEven
-    -- | > NaturalOdd                               ~  Natural/odd
-    | NaturalOdd
-    -- | > NaturalToInteger                         ~  Natural/toInteger
-    | NaturalToInteger
-    -- | > NaturalShow                              ~  Natural/show
-    | NaturalShow
-    -- | > NaturalSubtract                          ~  Natural/subtract
-    | NaturalSubtract
-    -- | > NaturalPlus x y                          ~  x + y
-    | NaturalPlus (Expr s a) (Expr s a)
-    -- | > NaturalTimes x y                         ~  x * y
-    | NaturalTimes (Expr s a) (Expr s a)
     -- | > Integer                                  ~  Integer
     | Integer
     -- | > IntegerLit n                             ~  ±n
@@ -535,6 +511,8 @@ data Expr s a
     | TimeZoneLiteral Time.TimeZone
     -- | A builtin list expression
     | ListExpr {-# UNPACK #-} !(Dhall.Syntax.List.ListExpr s a)
+    -- | A builtin natural expression
+    | NaturalExpr {-# UNPACK #-} !(Dhall.Syntax.Natural.NaturalExpr s a)
     -- | A builtin text expression
     | TextExpr {-# UNPACK #-} !(Dhall.Syntax.Text.TextExpr s a)
     -- | > Optional                                 ~  Optional
@@ -770,18 +748,6 @@ unsafeSubExpressions f (BoolOr a b) = BoolOr <$> f a <*> f b
 unsafeSubExpressions f (BoolEQ a b) = BoolEQ <$> f a <*> f b
 unsafeSubExpressions f (BoolNE a b) = BoolNE <$> f a <*> f b
 unsafeSubExpressions f (BoolIf a b c) = BoolIf <$> f a <*> f b <*> f c
-unsafeSubExpressions _ Natural = pure Natural
-unsafeSubExpressions _ (NaturalLit n) = pure (NaturalLit n)
-unsafeSubExpressions _ NaturalFold = pure NaturalFold
-unsafeSubExpressions _ NaturalBuild = pure NaturalBuild
-unsafeSubExpressions _ NaturalIsZero = pure NaturalIsZero
-unsafeSubExpressions _ NaturalEven = pure NaturalEven
-unsafeSubExpressions _ NaturalOdd = pure NaturalOdd
-unsafeSubExpressions _ NaturalToInteger = pure NaturalToInteger
-unsafeSubExpressions _ NaturalShow = pure NaturalShow
-unsafeSubExpressions _ NaturalSubtract = pure NaturalSubtract
-unsafeSubExpressions f (NaturalPlus a b) = NaturalPlus <$> f a <*> f b
-unsafeSubExpressions f (NaturalTimes a b) = NaturalTimes <$> f a <*> f b
 unsafeSubExpressions _ Integer = pure Integer
 unsafeSubExpressions _ (IntegerLit n) = pure (IntegerLit n)
 unsafeSubExpressions _ IntegerClamp = pure IntegerClamp
@@ -798,6 +764,7 @@ unsafeSubExpressions _ (TimeLiteral a b) = pure (TimeLiteral a b)
 unsafeSubExpressions _ TimeZone = pure TimeZone
 unsafeSubExpressions _ (TimeZoneLiteral a) = pure (TimeZoneLiteral a)
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
+unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
 unsafeSubExpressions f (TextExpr expr) = TextExpr <$> Dhall.Syntax.Text.subExpressions f expr
 unsafeSubExpressions _ Optional = pure Optional
 unsafeSubExpressions f (Some a) = Some <$> f a
@@ -1165,31 +1132,22 @@ reservedKeywords =
 reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
     Dhall.Syntax.List.reservedIdentifiers <>
+    Dhall.Syntax.Natural.reservedIdentifiers <>
     Dhall.Syntax.Text.reservedIdentifiers <>
     Data.HashSet.fromList
         [ -- Builtins according to the `builtin` rule in the grammar
-          "Natural/fold"
-        , "Natural/build"
-        , "Natural/isZero"
-        , "Natural/even"
-        , "Natural/odd"
-        , "Natural/toInteger"
-        , "Natural/show"
-        , "Natural/subtract"
-        , "Integer"
+          "Integer"
         , "Integer/clamp"
         , "Integer/negate"
         , "Integer/show"
         , "Integer/toDouble"
         , "Integer/show"
-        , "Natural/subtract"
         , "Double/show"
         , "Bool"
         , "True"
         , "False"
         , "Optional"
         , "None"
-        , "Natural"
         , "Integer"
         , "Double"
         , "Date"

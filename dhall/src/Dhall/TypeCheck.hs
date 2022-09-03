@@ -82,6 +82,7 @@ import qualified Dhall.Pretty
 import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
 import qualified Dhall.Syntax.List           as Builtins
+import qualified Dhall.Syntax.Natural        as Builtins
 import qualified Dhall.Syntax.Text           as Builtins
 import qualified Dhall.Util
 import qualified Lens.Family
@@ -432,13 +433,13 @@ infer typer = loop
 
             return _L'
 
-        Natural ->
+        NaturalExpr Builtins.Natural ->
             return (VConst Type)
 
-        NaturalLit _ ->
+        NaturalExpr (Builtins.NaturalLit _) ->
             return VNatural
 
-        NaturalFold ->
+        NaturalExpr Builtins.NaturalFold ->
             return
                 (   VNatural
                 ~>  VHPi "natural" (VConst Type) (\natural ->
@@ -450,7 +451,7 @@ infer typer = loop
                     )
                 )
 
-        NaturalBuild ->
+        NaturalExpr Builtins.NaturalBuild ->
             return
                 (   VHPi "natural" (VConst Type) (\natural ->
                         VHPi "succ" (natural ~> natural) (\_succ ->
@@ -462,25 +463,25 @@ infer typer = loop
                 ~>  VNatural
                 )
 
-        NaturalIsZero ->
+        NaturalExpr Builtins.NaturalIsZero ->
             return (VNatural ~> VBool)
 
-        NaturalEven ->
+        NaturalExpr Builtins.NaturalEven ->
             return (VNatural ~> VBool)
 
-        NaturalOdd ->
+        NaturalExpr Builtins.NaturalOdd ->
             return (VNatural ~> VBool)
 
-        NaturalToInteger ->
+        NaturalExpr Builtins.NaturalToInteger ->
             return (VNatural ~> VInteger)
 
-        NaturalShow ->
+        NaturalExpr Builtins.NaturalShow ->
             return (VNatural ~> VText)
 
-        NaturalSubtract ->
+        NaturalExpr Builtins.NaturalSubtract ->
             return (VNatural ~> VNatural ~> VNatural)
 
-        NaturalPlus l r -> do
+        NaturalExpr (Builtins.NaturalPlus l r) -> do
             tl' <- loop ctx l
 
             case tl' of
@@ -495,7 +496,7 @@ infer typer = loop
 
             return VNatural
 
-        NaturalTimes l r -> do
+        NaturalExpr (Builtins.NaturalTimes l r) -> do
             tl' <- loop ctx l
 
             case tl' of

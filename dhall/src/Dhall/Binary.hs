@@ -74,6 +74,7 @@ import qualified Dhall.Crypto
 import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
 import qualified Dhall.Syntax.List     as Builtins
+import qualified Dhall.Syntax.Natural  as Builtins
 import qualified Dhall.Syntax.Text     as Builtins
 import qualified Text.Printf           as Printf
 
@@ -677,28 +678,28 @@ encodeExpressionInternal encodeEmbed = go
             <>  Encoding.encodeString x
             <>  Encoding.encodeInt n
 
-        NaturalBuild ->
+        NaturalExpr Builtins.NaturalBuild ->
             Encoding.encodeUtf8ByteArray "Natural/build"
 
-        NaturalFold ->
+        NaturalExpr Builtins.NaturalFold ->
             Encoding.encodeUtf8ByteArray "Natural/fold"
 
-        NaturalIsZero ->
+        NaturalExpr Builtins.NaturalIsZero ->
             Encoding.encodeUtf8ByteArray "Natural/isZero"
 
-        NaturalEven ->
+        NaturalExpr Builtins.NaturalEven ->
             Encoding.encodeUtf8ByteArray "Natural/even"
 
-        NaturalOdd ->
+        NaturalExpr Builtins.NaturalOdd ->
             Encoding.encodeUtf8ByteArray "Natural/odd"
 
-        NaturalToInteger ->
+        NaturalExpr Builtins.NaturalToInteger ->
             Encoding.encodeUtf8ByteArray "Natural/toInteger"
 
-        NaturalShow ->
+        NaturalExpr Builtins.NaturalShow ->
             Encoding.encodeUtf8ByteArray "Natural/show"
 
-        NaturalSubtract ->
+        NaturalExpr Builtins.NaturalSubtract ->
             Encoding.encodeUtf8ByteArray "Natural/subtract"
 
         IntegerToDouble ->
@@ -765,7 +766,7 @@ encodeExpressionInternal encodeEmbed = go
         None ->
             Encoding.encodeUtf8ByteArray "None"
 
-        Natural ->
+        NaturalExpr Builtins.Natural ->
             Encoding.encodeUtf8ByteArray "Natural"
 
         Integer ->
@@ -849,10 +850,10 @@ encodeExpressionInternal encodeEmbed = go
         BoolNE l r ->
             encodeOperator 3 l r
 
-        NaturalPlus l r ->
+        NaturalExpr (Builtins.NaturalPlus l r) ->
             encodeOperator 4 l r
 
-        NaturalTimes l r ->
+        NaturalExpr (Builtins.NaturalTimes l r) ->
             encodeOperator 5 l r
 
         TextExpr (Builtins.TextAppend l r) ->
@@ -946,7 +947,7 @@ encodeExpressionInternal encodeEmbed = go
                 (go l)
                 (go r)
 
-        NaturalLit n ->
+        NaturalExpr (Builtins.NaturalLit n) ->
             encodeList2
                 (Encoding.encodeInt 15)
                 (Encoding.encodeInteger (fromIntegral n))

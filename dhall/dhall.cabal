@@ -362,6 +362,7 @@ Library
         Dhall.Pretty.Internal
         Dhall.Syntax
         Dhall.Syntax.List
+        Dhall.Syntax.Natural
         Dhall.Syntax.Patterns
         Dhall.Syntax.Text
         Dhall.URL

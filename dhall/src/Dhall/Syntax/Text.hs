@@ -8,8 +8,8 @@
 {-| This module contains the core syntax types of the builtin List type.
 -}
 
-module Dhall.Syntax.Text (
-      TextExpr(..)
+module Dhall.Syntax.Text
+    ( TextExpr(..)
     , Chunks(..)
 
     , subExpressions

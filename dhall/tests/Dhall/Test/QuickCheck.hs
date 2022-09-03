@@ -359,18 +359,6 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "BoolEQ")
             % (1 :: W "BoolNE")
             % (1 :: W "BoolIf")
-            % (1 :: W "Natural")
-            % (7 :: W "NaturalLit")
-            % (1 :: W "NaturalFold")
-            % (1 :: W "NaturalBuild")
-            % (1 :: W "NaturalIsZero")
-            % (1 :: W "NaturalEven")
-            % (1 :: W "NaturalOdd")
-            % (1 :: W "NaturalToInteger")
-            % (1 :: W "NaturalShow")
-            % (1 :: W "NaturalSubtract")
-            % (1 :: W "NaturalPlus")
-            % (1 :: W "NaturalTimes")
             % (1 :: W "Integer")
             % (7 :: W "IntegerLit")
             % (1 :: W "IntegerClamp")
@@ -387,6 +375,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "TimeZone")
             % (1 :: W "TimeZoneLiteral")
             % (1 :: W "ListExpr")
+            % (1 :: W "NaturalExpr")
             % (1 :: W "TextExpr")
             % (1 :: W "Optional")
             % (7 :: W "Some")
@@ -460,6 +449,31 @@ standardizedListExpression (Builtins.ListLit (Just _ ) xs) =
     Data.Sequence.null xs
 standardizedListExpression _ =
     True
+
+instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.NaturalExpr s a) where
+    arbitrary = Generic.Random.genericArbitrary weights
+      where
+        -- These weights determine the frequency of constructors in the generated
+        -- NaturalExpr.
+        -- They will fail to compile if the constructors don't appear in the order
+        -- in which they are defined in 'NaturalExpr'!
+        weights :: Weights (Builtins.NaturalExpr s a)
+        weights =
+              (1 :: W "Natural")
+            % (7 :: W "NaturalLit")
+            % (1 :: W "NaturalFold")
+            % (1 :: W "NaturalBuild")
+            % (1 :: W "NaturalIsZero")
+            % (1 :: W "NaturalEven")
+            % (1 :: W "NaturalOdd")
+            % (1 :: W "NaturalToInteger")
+            % (1 :: W "NaturalShow")
+            % (1 :: W "NaturalSubtract")
+            % (1 :: W "NaturalPlus")
+            % (1 :: W "NaturalTimes")
+            % ()
+
+    shrink = genericShrink
 
 instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.TextExpr s a) where
     arbitrary = Generic.Random.genericArbitrary Generic.Random.uniform

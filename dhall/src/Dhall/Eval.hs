@@ -74,15 +74,16 @@ import Dhall.Syntax
 import Dhall.Syntax.Patterns (Expr (..))
 
 import qualified Data.Char
-import qualified Data.Sequence     as Sequence
+import qualified Data.Sequence        as Sequence
 import qualified Data.Set
-import qualified Data.Text         as Text
-import qualified Data.Time         as Time
-import qualified Dhall.Map         as Map
+import qualified Data.Text            as Text
+import qualified Data.Time            as Time
+import qualified Dhall.Map            as Map
 import qualified Dhall.Set
-import qualified Dhall.Syntax      as Syntax
-import qualified Dhall.Syntax.List as Builtins
-import qualified Dhall.Syntax.Text as Builtins
+import qualified Dhall.Syntax         as Syntax
+import qualified Dhall.Syntax.List    as Builtins
+import qualified Dhall.Syntax.Natural as Builtins
+import qualified Dhall.Syntax.Text    as Builtins
 import qualified Text.Printf
 
 data Environment a
@@ -493,11 +494,11 @@ eval !env t0 =
                 (b', VBoolLit True, VBoolLit False) -> b'
                 (_, t', f') | conv env t' f'        -> t'
                 (b', t', f')                        -> VBoolIf b' t' f'
-        Natural ->
+        NaturalExpr Builtins.Natural ->
             VNatural
-        NaturalLit n ->
+        NaturalExpr (Builtins.NaturalLit n) ->
             VNaturalLit n
-        NaturalFold ->
+        NaturalExpr Builtins.NaturalFold ->
             VPrim $ \n ->
             VPrim $ \natural ->
             VPrim $ \succ ->
@@ -519,7 +520,7 @@ eval !env t0 =
                                     go  acc m = go (vApp succ acc) (m - 1)
                                 in  go zero (fromIntegral n' :: Integer)
                             _ -> inert
-        NaturalBuild ->
+        NaturalExpr Builtins.NaturalBuild ->
             VPrim $ \case
                 VPrimVar ->
                     VNaturalBuild VPrimVar
@@ -528,22 +529,22 @@ eval !env t0 =
                     `vApp` VHLam (Typed "n" VNatural) (\n -> vNaturalPlus n (VNaturalLit 1))
                     `vApp` VNaturalLit 0
 
-        NaturalIsZero -> VPrim $ \case
+        NaturalExpr Builtins.NaturalIsZero -> VPrim $ \case
             VNaturalLit n -> VBoolLit (n == 0)
             n             -> VNaturalIsZero n
-        NaturalEven -> VPrim $ \case
+        NaturalExpr Builtins.NaturalEven -> VPrim $ \case
             VNaturalLit n -> VBoolLit (even n)
             n             -> VNaturalEven n
-        NaturalOdd -> VPrim $ \case
+        NaturalExpr Builtins.NaturalOdd -> VPrim $ \case
             VNaturalLit n -> VBoolLit (odd n)
             n             -> VNaturalOdd n
-        NaturalToInteger -> VPrim $ \case
+        NaturalExpr Builtins.NaturalToInteger -> VPrim $ \case
             VNaturalLit n -> VIntegerLit (fromIntegral n)
             n             -> VNaturalToInteger n
-        NaturalShow -> VPrim $ \case
+        NaturalExpr Builtins.NaturalShow -> VPrim $ \case
             VNaturalLit n -> VTextLit (VChunks [] (Text.pack (show n)))
             n             -> VNaturalShow n
-        NaturalSubtract -> VPrim $ \case
+        NaturalExpr Builtins.NaturalSubtract -> VPrim $ \case
             VNaturalLit 0 ->
                 VHLam NaturalSubtractZero id
             x@(VNaturalLit m) ->
@@ -562,9 +563,9 @@ eval !env t0 =
                     VNaturalLit 0    -> VNaturalLit 0
                     y | conv env x y -> VNaturalLit 0
                     y                -> VNaturalSubtract x y
-        NaturalPlus t u ->
+        NaturalExpr (Builtins.NaturalPlus t u) ->
             vNaturalPlus (eval env t) (eval env u)
-        NaturalTimes t u ->
+        NaturalExpr (Builtins.NaturalTimes t u) ->
             case (eval env t, eval env u) of
                 (VNaturalLit 1, u'           ) -> u'
                 (t'           , VNaturalLit 1) -> t'
@@ -1354,29 +1355,29 @@ alphaNormalize = goEnv EmptyNames
                 BoolNE  (go t) (go u)
             BoolIf b t f ->
                 BoolIf  (go b) (go t) (go f)
-            Natural ->
+            NaturalExpr Builtins.Natural ->
                 Natural
-            NaturalLit n ->
+            NaturalExpr (Builtins.NaturalLit n) ->
                 NaturalLit n
-            NaturalFold ->
+            NaturalExpr Builtins.NaturalFold ->
                 NaturalFold
-            NaturalBuild ->
+            NaturalExpr Builtins.NaturalBuild ->
                 NaturalBuild
-            NaturalIsZero ->
+            NaturalExpr Builtins.NaturalIsZero ->
                 NaturalIsZero
-            NaturalEven ->
+            NaturalExpr Builtins.NaturalEven ->
                 NaturalEven
-            NaturalOdd ->
+            NaturalExpr Builtins.NaturalOdd ->
                 NaturalOdd
-            NaturalToInteger ->
+            NaturalExpr Builtins.NaturalToInteger ->
                 NaturalToInteger
-            NaturalShow ->
+            NaturalExpr Builtins.NaturalShow ->
                 NaturalShow
-            NaturalSubtract ->
+            NaturalExpr Builtins.NaturalSubtract ->
                 NaturalSubtract
-            NaturalPlus t u ->
+            NaturalExpr (Builtins.NaturalPlus t u) ->
                 NaturalPlus (go t) (go u)
-            NaturalTimes t u ->
+            NaturalExpr (Builtins.NaturalTimes t u) ->
                 NaturalTimes (go t) (go u)
             Integer ->
                 Integer

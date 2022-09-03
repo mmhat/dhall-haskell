@@ -45,13 +45,14 @@ import Dhall.Syntax.Patterns (Expr (..))
 
 import qualified Data.Sequence
 import qualified Data.Set
-import qualified Data.Text         as Text
-import qualified Dhall.Eval        as Eval
+import qualified Data.Text            as Text
+import qualified Dhall.Eval           as Eval
 import qualified Dhall.Map
-import qualified Dhall.Syntax      as Syntax
-import qualified Dhall.Syntax.List as Builtins
-import qualified Dhall.Syntax.Text as Builtins
-import qualified Lens.Family       as Lens
+import qualified Dhall.Syntax         as Syntax
+import qualified Dhall.Syntax.List    as Builtins
+import qualified Dhall.Syntax.Natural as Builtins
+import qualified Dhall.Syntax.Text    as Builtins
+import qualified Lens.Family          as Lens
 
 {-| Returns `True` if two expressions are α-equivalent and β-equivalent and
     `False` otherwise
@@ -433,23 +434,23 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
         decide  b               l              r
             | Eval.judgmentallyEqual l r = l
             | otherwise                  = BoolIf b l r
-    Natural -> pure Natural
-    NaturalLit n -> pure (NaturalLit n)
-    NaturalFold -> pure NaturalFold
-    NaturalBuild -> pure NaturalBuild
-    NaturalIsZero -> pure NaturalIsZero
-    NaturalEven -> pure NaturalEven
-    NaturalOdd -> pure NaturalOdd
-    NaturalToInteger -> pure NaturalToInteger
-    NaturalShow -> pure NaturalShow
-    NaturalSubtract -> pure NaturalSubtract
-    NaturalPlus x y -> decide <$> loop x <*> loop y
+    NaturalExpr Builtins.Natural -> pure Natural
+    NaturalExpr (Builtins.NaturalLit n) -> pure (NaturalLit n)
+    NaturalExpr Builtins.NaturalFold -> pure NaturalFold
+    NaturalExpr Builtins.NaturalBuild -> pure NaturalBuild
+    NaturalExpr Builtins.NaturalIsZero -> pure NaturalIsZero
+    NaturalExpr Builtins.NaturalEven -> pure NaturalEven
+    NaturalExpr Builtins.NaturalOdd -> pure NaturalOdd
+    NaturalExpr Builtins.NaturalToInteger -> pure NaturalToInteger
+    NaturalExpr Builtins.NaturalShow -> pure NaturalShow
+    NaturalExpr Builtins.NaturalSubtract -> pure NaturalSubtract
+    NaturalExpr (Builtins.NaturalPlus x y) -> decide <$> loop x <*> loop y
       where
         decide (NaturalLit 0)  r             = r
         decide  l             (NaturalLit 0) = l
         decide (NaturalLit m) (NaturalLit n) = NaturalLit (m + n)
         decide  l              r             = NaturalPlus l r
-    NaturalTimes x y -> decide <$> loop x <*> loop y
+    NaturalExpr (Builtins.NaturalTimes x y) -> decide <$> loop x <*> loop y
       where
         decide (NaturalLit 1)  r             = r
         decide  l             (NaturalLit 1) = l
@@ -840,23 +841,23 @@ isNormalized e0 = loop (Syntax.denote e0)
           decide (BoolLit _)  _              _              = False
           decide  _          (BoolLit True) (BoolLit False) = False
           decide  _           l              r              = not (Eval.judgmentallyEqual l r)
-      Natural -> True
-      NaturalLit _ -> True
-      NaturalFold -> True
-      NaturalBuild -> True
-      NaturalIsZero -> True
-      NaturalEven -> True
-      NaturalOdd -> True
-      NaturalShow -> True
-      NaturalSubtract -> True
-      NaturalToInteger -> True
-      NaturalPlus x y -> loop x && loop y && decide x y
+      NaturalExpr Builtins.Natural -> True
+      NaturalExpr (Builtins.NaturalLit _) -> True
+      NaturalExpr Builtins.NaturalFold -> True
+      NaturalExpr Builtins.NaturalBuild -> True
+      NaturalExpr Builtins.NaturalIsZero -> True
+      NaturalExpr Builtins.NaturalEven -> True
+      NaturalExpr Builtins.NaturalOdd -> True
+      NaturalExpr Builtins.NaturalShow -> True
+      NaturalExpr Builtins.NaturalSubtract -> True
+      NaturalExpr Builtins.NaturalToInteger -> True
+      NaturalExpr (Builtins.NaturalPlus x y) -> loop x && loop y && decide x y
         where
           decide (NaturalLit 0)  _             = False
           decide  _             (NaturalLit 0) = False
           decide (NaturalLit _) (NaturalLit _) = False
           decide  _              _             = True
-      NaturalTimes x y -> loop x && loop y && decide x y
+      NaturalExpr (Builtins.NaturalTimes x y) -> loop x && loop y && decide x y
         where
           decide (NaturalLit 0)  _             = False
           decide  _             (NaturalLit 0) = False
