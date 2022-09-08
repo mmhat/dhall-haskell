@@ -107,13 +107,12 @@ import                Prettyprinter              (Doc, Pretty)
 import                Unsafe.Coerce              (unsafeCoerce)
 
 import qualified Control.Monad
-import qualified Data.Fixed           as Fixed
 import qualified Data.HashSet
 import qualified Data.List.NonEmpty   as NonEmpty
 import qualified Data.Text
-import qualified Data.Time            as Time
 import qualified Dhall.Crypto
 import qualified Dhall.Syntax.Bool
+import qualified Dhall.Syntax.DateTime
 import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
@@ -121,11 +120,6 @@ import qualified Dhall.Syntax.Text
 import qualified Lens.Family          as Lens
 import qualified Network.URI          as URI
 import qualified Prettyprinter        as Pretty
-
-deriving instance Lift Time.Day
-deriving instance Lift Time.TimeOfDay
-deriving instance Lift Time.TimeZone
-deriving instance Lift (Fixed.Fixed a)
 
 -- $setup
 -- >>> import Dhall.Binary () -- For the orphan instance for `Serialise (Expr Void Import)`
@@ -468,24 +462,10 @@ data Expr s a
     | DoubleLit DhallDouble
     -- | > DoubleShow                               ~  Double/show
     | DoubleShow
-    -- | > Date                                     ~  Date
-    | Date
-    -- | > DateLiteral (fromGregorian _YYYY _MM _DD) ~ YYYY-MM-DD
-    | DateLiteral Time.Day
-    -- | > Time                                     ~  Time
-    | Time
-    -- | > TimeLiteral (TimeOfDay hh mm ss) _       ~  hh:mm:ss
-    | TimeLiteral
-        Time.TimeOfDay
-        Word
-        -- ^ Precision
-    -- | > TimeZone                                 ~  TimeZone
-    | TimeZone
-    -- | > TimeZoneLiteral (TimeZone ( 60 * _HH + _MM) _ _) ~ +HH:MM
-    -- | > TimeZoneLiteral (TimeZone (-60 * _HH + _MM) _ _) ~ -HH:MM
-    | TimeZoneLiteral Time.TimeZone
     -- | A builtin boolean expression
     | BoolExpr {-# UNPACK #-} !(Dhall.Syntax.Bool.BoolExpr s a)
+    -- | A builtin date expression or time expression
+    | DateTimeExpr {-# UNPACK #-} !Dhall.Syntax.DateTime.DateTimeExpr
     -- | A builtin integer expression
     | IntegerExpr {-# UNPACK #-} !Dhall.Syntax.Integer.IntegerExpr
     -- | A builtin list expression
@@ -723,13 +703,8 @@ unsafeSubExpressions f (Annot a b) = Annot <$> f a <*> f b
 unsafeSubExpressions _ Double = pure Double
 unsafeSubExpressions _ (DoubleLit n) = pure (DoubleLit n)
 unsafeSubExpressions _ DoubleShow = pure DoubleShow
-unsafeSubExpressions _ Date = pure Date
-unsafeSubExpressions _ (DateLiteral a) = pure (DateLiteral a)
-unsafeSubExpressions _ Time = pure Time
-unsafeSubExpressions _ (TimeLiteral a b) = pure (TimeLiteral a b)
-unsafeSubExpressions _ TimeZone = pure TimeZone
-unsafeSubExpressions _ (TimeZoneLiteral a) = pure (TimeZoneLiteral a)
 unsafeSubExpressions f (BoolExpr expr) = BoolExpr <$> Dhall.Syntax.Bool.subExpressions f expr
+unsafeSubExpressions _ (DateTimeExpr expr) = pure (DateTimeExpr expr)
 unsafeSubExpressions _ (IntegerExpr expr) = pure (IntegerExpr expr)
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
 unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
@@ -1100,6 +1075,7 @@ reservedKeywords =
 reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
     Dhall.Syntax.Bool.reservedIdentifiers <>
+    Dhall.Syntax.DateTime.reservedIdentifiers <>
     Dhall.Syntax.Integer.reservedIdentifiers <>
     Dhall.Syntax.List.reservedIdentifiers <>
     Dhall.Syntax.Natural.reservedIdentifiers <>
@@ -1111,9 +1087,6 @@ reservedIdentifiers = reservedKeywords <>
         , "None"
         , "Integer"
         , "Double"
-        , "Date"
-        , "Time"
-        , "TimeZone"
         , "Type"
         , "Kind"
         , "Sort"

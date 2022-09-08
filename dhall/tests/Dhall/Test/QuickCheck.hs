@@ -355,13 +355,8 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "Double")
             % (7 :: W "DoubleLit")
             % (1 :: W "DoubleShow")
-            % (1 :: W "Date")
-            % (1 :: W "DateLiteral")
-            % (1 :: W "Time")
-            % (1 :: W "TimeLiteral")
-            % (1 :: W "TimeZone")
-            % (1 :: W "TimeZoneLiteral")
             % (1 :: W "BoolExpr")
+            % (1 :: W "DateTimeExpr")
             % (1 :: W "IntegerExpr")
             % (1 :: W "ListExpr")
             % (1 :: W "NaturalExpr")
@@ -456,6 +451,11 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.BoolExpr s a) where
             % (1 :: W "BoolNE")
             % (1 :: W "BoolIf")
             % ()
+
+    shrink = genericShrink
+
+instance Arbitrary Builtins.DateTimeExpr where
+    arbitrary = Generic.Random.genericArbitrary Generic.Random.uniform
 
     shrink = genericShrink
 

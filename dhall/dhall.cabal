@@ -362,6 +362,7 @@ Library
         Dhall.Pretty.Internal
         Dhall.Syntax
         Dhall.Syntax.Bool
+        Dhall.Syntax.DateTime
         Dhall.Syntax.Integer
         Dhall.Syntax.List
         Dhall.Syntax.Natural

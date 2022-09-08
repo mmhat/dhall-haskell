@@ -50,6 +50,7 @@ import qualified Dhall.Eval           as Eval
 import qualified Dhall.Map
 import qualified Dhall.Syntax         as Syntax
 import qualified Dhall.Syntax.Bool    as Builtins
+import qualified Dhall.Syntax.DateTime    as Builtins
 import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
@@ -487,12 +488,12 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
     TextExpr (Builtins.TextAppend x y) -> loop (TextLit (Chunks [("", x), ("", y)] ""))
     TextExpr Builtins.TextReplace -> pure TextReplace
     TextExpr Builtins.TextShow -> pure TextShow
-    Date -> pure Date
-    DateLiteral d -> pure (DateLiteral d)
-    Time -> pure Time
-    TimeLiteral t p -> pure (TimeLiteral t p)
-    TimeZone -> pure TimeZone
-    TimeZoneLiteral z -> pure (TimeZoneLiteral z)
+    DateTimeExpr Builtins.Date -> pure Date
+    DateTimeExpr (Builtins.DateLiteral d) -> pure (DateLiteral d)
+    DateTimeExpr Builtins.Time -> pure Time
+    DateTimeExpr (Builtins.TimeLiteral t p) -> pure (TimeLiteral t p)
+    DateTimeExpr Builtins.TimeZone -> pure TimeZone
+    DateTimeExpr (Builtins.TimeZoneLiteral z) -> pure (TimeZoneLiteral z)
     ListExpr Builtins.List -> pure List
     ListExpr (Builtins.ListLit t es)
         | Data.Sequence.null es -> ListLit <$> t' <*> pure Data.Sequence.empty
@@ -886,12 +887,12 @@ isNormalized e0 = loop (Syntax.denote e0)
       TextExpr (Builtins.TextAppend _ _) -> False
       TextExpr Builtins.TextReplace -> True
       TextExpr Builtins.TextShow -> True
-      Date -> True
-      DateLiteral _ -> True
-      Time -> True
-      TimeLiteral _ _ -> True
-      TimeZone -> True
-      TimeZoneLiteral _ -> True
+      DateTimeExpr Builtins.Date -> True
+      DateTimeExpr (Builtins.DateLiteral _) -> True
+      DateTimeExpr Builtins.Time -> True
+      DateTimeExpr (Builtins.TimeLiteral _ _) -> True
+      DateTimeExpr Builtins.TimeZone -> True
+      DateTimeExpr (Builtins.TimeZoneLiteral _) -> True
       ListExpr Builtins.List -> True
       ListExpr (Builtins.ListLit t es) -> all loop t && all loop es
       ListExpr (Builtins.ListAppend x y) -> loop x && loop y && decide x y

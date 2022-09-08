@@ -13,6 +13,12 @@ module Dhall.Syntax.Patterns (
         , BoolIf
         , BoolNE
         , BoolOr
+        , Date
+        , DateLiteral
+        , Time
+        , TimeLiteral
+        , TimeZone
+        , TimeZoneLiteral
         , Integer
         , IntegerLit
         , IntegerClamp
@@ -50,11 +56,13 @@ module Dhall.Syntax.Patterns (
     ) where
 
 import Data.Sequence     (Seq)
+import Data.Time         (Day, TimeOfDay, TimeZone)
 import Dhall.Syntax      (Expr (..))
 import Dhall.Syntax.Text (Chunks)
 import Numeric.Natural   (Natural)
 
 import qualified Dhall.Syntax.Bool
+import qualified Dhall.Syntax.DateTime
 import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
@@ -91,6 +99,38 @@ pattern BoolNE x y = BoolExpr (Dhall.Syntax.Bool.BoolNE x y)
 -- | > BoolIf x y z  ~  if x then y else z
 pattern BoolIf :: Expr s a -> Expr s a -> Expr s a -> Expr s a
 pattern BoolIf b t f = BoolExpr (Dhall.Syntax.Bool.BoolIf b t f)
+
+--------------------------------------------------------------------------------
+-- DateTime builtin
+--------------------------------------------------------------------------------
+
+-- | > Date  ~  Date
+pattern Date :: Expr s a
+pattern Date = DateTimeExpr Dhall.Syntax.DateTime.Date
+
+-- | > DateLiteral (fromGregorian _YYYY _MM _DD)  ~  YYYY-MM-DD
+pattern DateLiteral :: Day -> Expr s a
+pattern DateLiteral day = DateTimeExpr (Dhall.Syntax.DateTime.DateLiteral day)
+
+-- | > Time  ~  Time
+pattern Time :: Expr s a
+pattern Time = DateTimeExpr Dhall.Syntax.DateTime.Time
+
+-- | > TimeLiteral (TimeOfDay hh mm ss) _  ~  hh:mm:ss
+pattern TimeLiteral
+    :: TimeOfDay
+    -> Word -- ^ Precision
+    -> Expr s a
+pattern TimeLiteral tod prec = DateTimeExpr (Dhall.Syntax.DateTime.TimeLiteral tod prec)
+
+-- | > TimeZone  ~  TimeZone
+pattern TimeZone :: Expr s a
+pattern TimeZone = DateTimeExpr Dhall.Syntax.DateTime.TimeZone
+
+-- | > TimeZoneLiteral (TimeZone ( 60 * _HH + _MM) _ _)  ~  +HH:MM
+-- | > TimeZoneLiteral (TimeZone (-60 * _HH + _MM) _ _)  ~  -HH:MM
+pattern TimeZoneLiteral :: TimeZone -> Expr s a
+pattern TimeZoneLiteral tz = DateTimeExpr (Dhall.Syntax.DateTime.TimeZoneLiteral tz)
 
 --------------------------------------------------------------------------------
 -- Integer builtin

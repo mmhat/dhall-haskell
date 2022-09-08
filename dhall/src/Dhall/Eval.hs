@@ -82,6 +82,7 @@ import qualified Dhall.Map            as Map
 import qualified Dhall.Set
 import qualified Dhall.Syntax         as Syntax
 import qualified Dhall.Syntax.Bool    as Builtins
+import qualified Dhall.Syntax.DateTime    as Builtins
 import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
@@ -661,17 +662,17 @@ eval !env t0 =
                                     VTextReplace needle replacement haystack
                         _ ->
                             VTextReplace needle replacement haystack
-        Date ->
+        DateTimeExpr Builtins.Date ->
             VDate
-        DateLiteral d ->
+        DateTimeExpr (Builtins.DateLiteral d) ->
             VDateLiteral d
-        Time ->
+        DateTimeExpr Builtins.Time ->
             VTime
-        TimeLiteral t p ->
+        DateTimeExpr (Builtins.TimeLiteral t p) ->
             VTimeLiteral t p
-        TimeZone ->
+        DateTimeExpr Builtins.TimeZone ->
             VTimeZone
-        TimeZoneLiteral z ->
+        DateTimeExpr (Builtins.TimeZoneLiteral z) ->
             VTimeZoneLiteral z
         ListExpr Builtins.List ->
             VPrim VList
@@ -1409,17 +1410,17 @@ alphaNormalize = goEnv EmptyNames
                 TextShow
             TextExpr Builtins.TextReplace ->
                 TextReplace
-            Date ->
+            DateTimeExpr Builtins.Date ->
                 Date
-            DateLiteral d ->
+            DateTimeExpr (Builtins.DateLiteral d) ->
                 DateLiteral d
-            Time ->
+            DateTimeExpr Builtins.Time ->
                 Time
-            TimeLiteral t p ->
+            DateTimeExpr (Builtins.TimeLiteral t p) ->
                 TimeLiteral t p
-            TimeZone ->
+            DateTimeExpr Builtins.TimeZone ->
                 TimeZone
-            TimeZoneLiteral z ->
+            DateTimeExpr (Builtins.TimeZoneLiteral z) ->
                 TimeZoneLiteral z
             ListExpr Builtins.List ->
                 List

@@ -5,6 +5,8 @@
 module Dhall.Core.Builtins
     ( -- * Bool builtins
       module Dhall.Syntax.Bool
+    , -- * Date builtins and Time builtins
+      module Dhall.Syntax.DateTime
     , -- * Integer builtins
       module Dhall.Syntax.Integer
     , -- * List builtins
@@ -16,6 +18,7 @@ module Dhall.Core.Builtins
     ) where
 
 import Dhall.Syntax.Bool    (BoolExpr (..))
+import Dhall.Syntax.DateTime (DateTimeExpr (..))
 import Dhall.Syntax.Integer (IntegerExpr (..))
 import Dhall.Syntax.List    (ListExpr (..))
 import Dhall.Syntax.Natural (NaturalExpr (..))

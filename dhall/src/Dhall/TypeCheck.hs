@@ -82,6 +82,7 @@ import qualified Dhall.Pretty
 import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
 import qualified Dhall.Syntax.Bool           as Builtins
+import qualified Dhall.Syntax.DateTime           as Builtins
 import qualified Dhall.Syntax.Integer        as Builtins
 import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Syntax.Natural        as Builtins
@@ -583,22 +584,22 @@ infer typer = loop
         TextExpr Builtins.TextShow ->
             return (VText ~> VText)
 
-        Date ->
+        DateTimeExpr Builtins.Date ->
             return (VConst Type)
 
-        DateLiteral _ ->
+        DateTimeExpr (Builtins.DateLiteral _) ->
             return VDate
 
-        Time ->
+        DateTimeExpr Builtins.Time ->
             return (VConst Type)
 
-        TimeLiteral _ _ ->
+        DateTimeExpr (Builtins.TimeLiteral _ _) ->
             return VTime
 
-        TimeZone ->
+        DateTimeExpr Builtins.TimeZone ->
             return (VConst Type)
 
-        TimeZoneLiteral _ ->
+        DateTimeExpr (Builtins.TimeZoneLiteral _) ->
             return VTimeZone
 
         ListExpr Builtins.List ->

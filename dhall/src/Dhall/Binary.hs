@@ -74,6 +74,7 @@ import qualified Dhall.Crypto
 import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
 import qualified Dhall.Syntax.Bool     as Builtins
+import qualified Dhall.Syntax.DateTime     as Builtins
 import qualified Dhall.Syntax.Integer  as Builtins
 import qualified Dhall.Syntax.List     as Builtins
 import qualified Dhall.Syntax.Natural  as Builtins
@@ -786,13 +787,13 @@ encodeExpressionInternal encodeEmbed = go
         TextExpr Builtins.TextShow ->
             Encoding.encodeUtf8ByteArray "Text/show"
 
-        Date ->
+        DateTimeExpr Builtins.Date ->
             Encoding.encodeUtf8ByteArray "Date"
 
-        Time ->
+        DateTimeExpr Builtins.Time ->
             Encoding.encodeUtf8ByteArray "Time"
 
-        TimeZone ->
+        DateTimeExpr Builtins.TimeZone ->
             Encoding.encodeUtf8ByteArray "TimeZone"
 
         Const Type ->
@@ -1041,7 +1042,7 @@ encodeExpressionInternal encodeEmbed = go
             encodeWithComponent  WithQuestion  = Encoding.encodeInt 0
             encodeWithComponent (WithLabel k ) = Encoding.encodeString k
 
-        DateLiteral day ->
+        DateTimeExpr (Builtins.DateLiteral day) ->
             encodeList4
                 (Encoding.encodeInt 30)
                 (Encoding.encodeInt (fromInteger _YYYY))
@@ -1050,7 +1051,7 @@ encodeExpressionInternal encodeEmbed = go
           where
             (_YYYY, _MM, _DD) = Time.toGregorian day
 
-        TimeLiteral (Time.TimeOfDay hh mm ss) precision ->
+        DateTimeExpr (Builtins.TimeLiteral (Time.TimeOfDay hh mm ss) precision) ->
             encodeList4
                 (Encoding.encodeInt 31)
                 (Encoding.encodeInt hh)
@@ -1073,7 +1074,7 @@ encodeExpressionInternal encodeEmbed = go
                 | otherwise =
                     Encoding.encodeInteger mantissa
 
-        TimeZoneLiteral (Time.TimeZone minutes _ _) ->
+        DateTimeExpr (Builtins.TimeZoneLiteral (Time.TimeZone minutes _ _)) ->
             encodeList4
                 (Encoding.encodeInt 32)
                 (Encoding.encodeBool sign)
