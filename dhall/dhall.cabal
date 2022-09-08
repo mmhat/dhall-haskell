@@ -364,6 +364,7 @@ Library
         Dhall.Syntax.Bool
         Dhall.Syntax.DateTime
         Dhall.Syntax.Double
+        Dhall.Syntax.Import
         Dhall.Syntax.Integer
         Dhall.Syntax.List
         Dhall.Syntax.Natural
