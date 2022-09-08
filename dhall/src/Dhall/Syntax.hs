@@ -28,7 +28,7 @@ module Dhall.Syntax (
     , makeBinding
     , CharacterSet(..)
     , Dhall.Syntax.Text.Chunks(..)
-    , DhallDouble(..)
+    , Dhall.Syntax.Double.DhallDouble(..)
     , PreferAnnotation(..)
     , Expr(..)
     , RecordField(..)
@@ -89,7 +89,6 @@ module Dhall.Syntax (
 
 import                Control.DeepSeq            (NFData)
 import                Data.Bifunctor             (Bifunctor (..))
-import                Data.Bits                  (xor)
 import                Data.Data                  (Data)
 import                Data.HashSet               (HashSet)
 import                Data.List.NonEmpty         (NonEmpty (..))
@@ -113,6 +112,7 @@ import qualified Data.Text
 import qualified Dhall.Crypto
 import qualified Dhall.Syntax.Bool
 import qualified Dhall.Syntax.DateTime
+import qualified Dhall.Syntax.Double
 import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
@@ -225,39 +225,6 @@ instance Bifunctor Binding where
 -}
 makeBinding :: Text -> Expr s a -> Binding s a
 makeBinding name = Binding Nothing name Nothing Nothing Nothing
-
--- | This wrapper around 'Prelude.Double' exists for its 'Eq' instance which is
--- defined via the binary encoding of Dhall @Double@s.
-newtype DhallDouble = DhallDouble { getDhallDouble :: Double }
-    deriving stock (Show, Data, Lift, Generic)
-    deriving anyclass NFData
-
--- | This instance satisfies all the customary 'Eq' laws except substitutivity.
---
--- In particular:
---
--- >>> nan = DhallDouble (0/0)
--- >>> nan == nan
--- True
---
--- This instance is also consistent with with the binary encoding of Dhall @Double@s:
---
--- >>> toBytes n = Dhall.Binary.encodeExpression (DoubleLit n :: Expr Void Import)
---
--- prop> \a b -> (a == b) == (toBytes a == toBytes b)
-instance Eq DhallDouble where
-    DhallDouble a == DhallDouble b
-        | isNaN a && isNaN b                      = True
-        | isNegativeZero a `xor` isNegativeZero b = False
-        | otherwise                               = a == b
-
--- | This instance relies on the 'Eq' instance for 'DhallDouble' but cannot
--- satisfy the customary 'Ord' laws when @NaN@ is involved.
-instance Ord DhallDouble where
-    compare a@(DhallDouble a') b@(DhallDouble b') =
-        if a == b
-            then EQ
-            else compare a' b'
 
 -- | Used to record the origin of a @//@ operator (i.e. from source code or a
 -- product of desugaring)
@@ -456,16 +423,12 @@ data Expr s a
     | Let (Binding s a) (Expr s a)
     -- | > Annot x t                                ~  x : t
     | Annot (Expr s a) (Expr s a)
-    -- | > Double                                   ~  Double
-    | Double
-    -- | > DoubleLit n                              ~  n
-    | DoubleLit DhallDouble
-    -- | > DoubleShow                               ~  Double/show
-    | DoubleShow
     -- | A builtin boolean expression
     | BoolExpr {-# UNPACK #-} !(Dhall.Syntax.Bool.BoolExpr s a)
     -- | A builtin date expression or time expression
     | DateTimeExpr {-# UNPACK #-} !Dhall.Syntax.DateTime.DateTimeExpr
+    -- | A builtin double expression
+    | DoubleExpr {-# UNPACK #-} !Dhall.Syntax.Double.DoubleExpr
     -- | A builtin integer expression
     | IntegerExpr {-# UNPACK #-} !Dhall.Syntax.Integer.IntegerExpr
     -- | A builtin list expression
@@ -700,11 +663,9 @@ unsafeSubExpressions _ (Var v) = pure (Var v)
 unsafeSubExpressions f (Pi cs a b c) = Pi cs a <$> f b <*> f c
 unsafeSubExpressions f (App a b) = App <$> f a <*> f b
 unsafeSubExpressions f (Annot a b) = Annot <$> f a <*> f b
-unsafeSubExpressions _ Double = pure Double
-unsafeSubExpressions _ (DoubleLit n) = pure (DoubleLit n)
-unsafeSubExpressions _ DoubleShow = pure DoubleShow
 unsafeSubExpressions f (BoolExpr expr) = BoolExpr <$> Dhall.Syntax.Bool.subExpressions f expr
 unsafeSubExpressions _ (DateTimeExpr expr) = pure (DateTimeExpr expr)
+unsafeSubExpressions _ (DoubleExpr expr) = pure (DoubleExpr expr)
 unsafeSubExpressions _ (IntegerExpr expr) = pure (IntegerExpr expr)
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
 unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
@@ -1076,17 +1037,15 @@ reservedIdentifiers :: HashSet Text
 reservedIdentifiers = reservedKeywords <>
     Dhall.Syntax.Bool.reservedIdentifiers <>
     Dhall.Syntax.DateTime.reservedIdentifiers <>
+    Dhall.Syntax.Double.reservedIdentifiers <>
     Dhall.Syntax.Integer.reservedIdentifiers <>
     Dhall.Syntax.List.reservedIdentifiers <>
     Dhall.Syntax.Natural.reservedIdentifiers <>
     Dhall.Syntax.Text.reservedIdentifiers <>
     Data.HashSet.fromList
         [ -- Builtins according to the `builtin` rule in the grammar
-          "Double/show"
-        , "Optional"
+          "Optional"
         , "None"
-        , "Integer"
-        , "Double"
         , "Type"
         , "Kind"
         , "Sort"

@@ -7,6 +7,8 @@ module Dhall.Core.Builtins
       module Dhall.Syntax.Bool
     , -- * Date builtins and Time builtins
       module Dhall.Syntax.DateTime
+    , -- * Double builtins
+      module Dhall.Syntax.Double
     , -- * Integer builtins
       module Dhall.Syntax.Integer
     , -- * List builtins
@@ -19,6 +21,7 @@ module Dhall.Core.Builtins
 
 import Dhall.Syntax.Bool    (BoolExpr (..))
 import Dhall.Syntax.DateTime (DateTimeExpr (..))
+import Dhall.Syntax.Double (DoubleExpr (..))
 import Dhall.Syntax.Integer (IntegerExpr (..))
 import Dhall.Syntax.List    (ListExpr (..))
 import Dhall.Syntax.Natural (NaturalExpr (..))

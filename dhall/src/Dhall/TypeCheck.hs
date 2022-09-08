@@ -83,6 +83,7 @@ import qualified Dhall.Pretty.Internal
 import qualified Dhall.Syntax                as Syntax
 import qualified Dhall.Syntax.Bool           as Builtins
 import qualified Dhall.Syntax.DateTime           as Builtins
+import qualified Dhall.Syntax.Double           as Builtins
 import qualified Dhall.Syntax.Integer        as Builtins
 import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Syntax.Natural        as Builtins
@@ -532,13 +533,13 @@ infer typer = loop
         IntegerExpr Builtins.IntegerToDouble ->
             return (VInteger ~> VDouble)
 
-        Double ->
+        DoubleExpr Builtins.Double ->
             return (VConst Type)
 
-        DoubleLit _ ->
+        DoubleExpr (Builtins.DoubleLit _) ->
             return VDouble
 
-        DoubleShow ->
+        DoubleExpr Builtins.DoubleShow ->
             return (VDouble ~> VText)
 
         TextExpr Builtins.Text ->

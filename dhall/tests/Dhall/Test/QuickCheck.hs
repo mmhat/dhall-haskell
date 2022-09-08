@@ -352,11 +352,9 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (7 :: W "App")
             % (7 :: W "Let")
             % (1 :: W "Annot")
-            % (1 :: W "Double")
-            % (7 :: W "DoubleLit")
-            % (1 :: W "DoubleShow")
             % (1 :: W "BoolExpr")
             % (1 :: W "DateTimeExpr")
+            % (1 :: W "DoubleExpr")
             % (1 :: W "IntegerExpr")
             % (1 :: W "ListExpr")
             % (1 :: W "NaturalExpr")
@@ -456,6 +454,22 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.BoolExpr s a) where
 
 instance Arbitrary Builtins.DateTimeExpr where
     arbitrary = Generic.Random.genericArbitrary Generic.Random.uniform
+
+    shrink = genericShrink
+
+instance Arbitrary Builtins.DoubleExpr where
+    arbitrary = Generic.Random.genericArbitrary weights
+      where
+        -- These weights determine the frequency of constructors in the generated
+        -- DoubleExpr.
+        -- They will fail to compile if the constructors don't appear in the order
+        -- in which they are defined in 'DoubleExpr'!
+        weights :: Weights Builtins.DoubleExpr
+        weights =
+              (1 :: W "Double")
+            % (7 :: W "DoubleLit")
+            % (1 :: W "DoubleShow")
+            % ()
 
     shrink = genericShrink
 

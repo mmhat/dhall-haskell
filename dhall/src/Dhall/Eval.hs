@@ -83,6 +83,7 @@ import qualified Dhall.Set
 import qualified Dhall.Syntax         as Syntax
 import qualified Dhall.Syntax.Bool    as Builtins
 import qualified Dhall.Syntax.DateTime    as Builtins
+import qualified Dhall.Syntax.Double    as Builtins
 import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
@@ -603,11 +604,11 @@ eval !env t0 =
                 -- because `read` uses the correct rounding rule.
                 -- See https://gitlab.haskell.org/ghc/ghc/issues/17231.
                 n             -> VIntegerToDouble n
-        Double ->
+        DoubleExpr Builtins.Double ->
             VDouble
-        DoubleLit n ->
+        DoubleExpr (Builtins.DoubleLit n) ->
             VDoubleLit n
-        DoubleShow ->
+        DoubleExpr Builtins.DoubleShow ->
             VPrim $ \case
                 VDoubleLit (DhallDouble n) -> VTextLit (VChunks [] (Text.pack (show n)))
                 n                          -> VDoubleShow n
@@ -1394,11 +1395,11 @@ alphaNormalize = goEnv EmptyNames
                 IntegerShow
             IntegerExpr Builtins.IntegerToDouble ->
                 IntegerToDouble
-            Double ->
+            DoubleExpr Builtins.Double ->
                 Double
-            DoubleLit n ->
+            DoubleExpr (Builtins.DoubleLit n) ->
                 DoubleLit n
-            DoubleShow ->
+            DoubleExpr Builtins.DoubleShow ->
                 DoubleShow
             TextExpr Builtins.Text ->
                 Text

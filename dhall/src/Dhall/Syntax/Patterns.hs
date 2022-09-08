@@ -19,6 +19,9 @@ module Dhall.Syntax.Patterns (
         , TimeLiteral
         , TimeZone
         , TimeZoneLiteral
+        , Double
+        , DoubleLit
+        , DoubleShow
         , Integer
         , IntegerLit
         , IntegerClamp
@@ -58,11 +61,13 @@ module Dhall.Syntax.Patterns (
 import Data.Sequence     (Seq)
 import Data.Time         (Day, TimeOfDay, TimeZone)
 import Dhall.Syntax      (Expr (..))
+import Dhall.Syntax.Double (DhallDouble)
 import Dhall.Syntax.Text (Chunks)
 import Numeric.Natural   (Natural)
 
 import qualified Dhall.Syntax.Bool
 import qualified Dhall.Syntax.DateTime
+import qualified Dhall.Syntax.Double
 import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
@@ -131,6 +136,22 @@ pattern TimeZone = DateTimeExpr Dhall.Syntax.DateTime.TimeZone
 -- | > TimeZoneLiteral (TimeZone (-60 * _HH + _MM) _ _)  ~  -HH:MM
 pattern TimeZoneLiteral :: TimeZone -> Expr s a
 pattern TimeZoneLiteral tz = DateTimeExpr (Dhall.Syntax.DateTime.TimeZoneLiteral tz)
+
+--------------------------------------------------------------------------------
+-- Double builtin
+--------------------------------------------------------------------------------
+
+-- | > Double  ~  Double
+pattern Double :: Expr s a
+pattern Double = DoubleExpr Dhall.Syntax.Double.Double
+
+-- | > DoubleLit n  ~  n
+pattern DoubleLit :: DhallDouble -> Expr s a
+pattern DoubleLit n = DoubleExpr (Dhall.Syntax.Double.DoubleLit n)
+
+-- | > DoubleShow  ~  Double/show
+pattern DoubleShow :: Expr s a
+pattern DoubleShow = DoubleExpr Dhall.Syntax.Double.DoubleShow
 
 --------------------------------------------------------------------------------
 -- Integer builtin

@@ -75,6 +75,7 @@ import qualified Dhall.Map
 import qualified Dhall.Syntax          as Syntax
 import qualified Dhall.Syntax.Bool     as Builtins
 import qualified Dhall.Syntax.DateTime     as Builtins
+import qualified Dhall.Syntax.Double     as Builtins
 import qualified Dhall.Syntax.Integer  as Builtins
 import qualified Dhall.Syntax.List     as Builtins
 import qualified Dhall.Syntax.Natural  as Builtins
@@ -717,7 +718,7 @@ encodeExpressionInternal encodeEmbed = go
         IntegerExpr Builtins.IntegerShow ->
             Encoding.encodeUtf8ByteArray "Integer/show"
 
-        DoubleShow ->
+        DoubleExpr Builtins.DoubleShow ->
             Encoding.encodeUtf8ByteArray "Double/show"
 
         ListExpr Builtins.List ->
@@ -775,7 +776,7 @@ encodeExpressionInternal encodeEmbed = go
         IntegerExpr Builtins.Integer ->
             Encoding.encodeUtf8ByteArray "Integer"
 
-        Double ->
+        DoubleExpr Builtins.Double ->
             Encoding.encodeUtf8ByteArray "Double"
 
         TextExpr Builtins.Text ->
@@ -960,7 +961,7 @@ encodeExpressionInternal encodeEmbed = go
                 (Encoding.encodeInt 16)
                 (Encoding.encodeInteger (fromIntegral n))
 
-        DoubleLit (DhallDouble n64)
+        DoubleExpr (Builtins.DoubleLit (DhallDouble n64))
             | useHalf   -> Encoding.encodeFloat16 n32
             | useFloat  -> Encoding.encodeFloat n32
             | otherwise -> Encoding.encodeDouble n64

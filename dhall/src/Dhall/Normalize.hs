@@ -51,6 +51,7 @@ import qualified Dhall.Map
 import qualified Dhall.Syntax         as Syntax
 import qualified Dhall.Syntax.Bool    as Builtins
 import qualified Dhall.Syntax.DateTime    as Builtins
+import qualified Dhall.Syntax.Double    as Builtins
 import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
@@ -467,9 +468,9 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
     IntegerExpr Builtins.IntegerNegate -> pure IntegerNegate
     IntegerExpr Builtins.IntegerShow -> pure IntegerShow
     IntegerExpr Builtins.IntegerToDouble -> pure IntegerToDouble
-    Double -> pure Double
-    DoubleLit n -> pure (DoubleLit n)
-    DoubleShow -> pure DoubleShow
+    DoubleExpr Builtins.Double -> pure Double
+    DoubleExpr (Builtins.DoubleLit n) -> pure (DoubleLit n)
+    DoubleExpr Builtins.DoubleShow -> pure DoubleShow
     TextExpr Builtins.Text -> pure Text
     TextExpr (Builtins.TextLit (Chunks xys z)) -> do
         chunks' <- mconcat <$> chunks
@@ -874,9 +875,9 @@ isNormalized e0 = loop (Syntax.denote e0)
       IntegerExpr Builtins.IntegerNegate -> True
       IntegerExpr Builtins.IntegerShow -> True
       IntegerExpr Builtins.IntegerToDouble -> True
-      Double -> True
-      DoubleLit _ -> True
-      DoubleShow -> True
+      DoubleExpr Builtins.Double -> True
+      DoubleExpr (Builtins.DoubleLit _) -> True
+      DoubleExpr Builtins.DoubleShow -> True
       TextExpr Builtins.Text -> True
       TextExpr (Builtins.TextLit (Chunks [("", _)] "")) -> False
       TextExpr (Builtins.TextLit (Chunks xys _)) -> all (all check) xys
