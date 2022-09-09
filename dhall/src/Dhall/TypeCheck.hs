@@ -888,7 +888,7 @@ infer typer = loop
 
             return (VConst c)
 
-        Prefer _ a l r -> do
+        Prefer _ _ l r -> do
             _L' <- loop ctx l
 
             _R' <- loop ctx r
@@ -901,11 +901,7 @@ infer typer = loop
 
                     let l'' = quote names (eval values l)
 
-                    case a of
-                        PreferFromWith withExpression ->
-                            die (MustUpdateARecord withExpression l'' _L'')
-                        _ ->
-                            die (MustCombineARecord '⫽' l'' _L'')
+                    die (MustCombineARecord '⫽' l'' _L'')
 
             xRs' <- case _R' of
                 VRecord xRs' -> return xRs'

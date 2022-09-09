@@ -226,19 +226,10 @@ makeBinding name = Binding Nothing name Nothing Nothing Nothing
 
 -- | Used to record the origin of a @//@ operator (i.e. from source code or a
 -- product of desugaring)
-data PreferAnnotation s a
+data PreferAnnotation
     = PreferFromSource
-    | PreferFromWith (Expr s a)
-      -- ^ Stores the original @with@ expression
     | PreferFromCompletion
-    deriving (Data, Eq, Foldable, Functor, Generic, Lift, NFData, Ord, Show, Traversable)
-
-instance Bifunctor PreferAnnotation where
-    first _  PreferFromSource      = PreferFromSource
-    first f (PreferFromWith e    ) = PreferFromWith (first f e)
-    first _  PreferFromCompletion  = PreferFromCompletion
-
-    second = fmap
+    deriving (Data, Eq, Generic, Lift, NFData, Ord, Show)
 
 -- | Record the field of a record-type and record-literal expression.
 -- The reason why we use the same ADT for both of them is because they store
@@ -464,11 +455,8 @@ data Expr s a
     | Combine (Maybe CharacterSet) (Maybe Text) (Expr s a) (Expr s a)
     -- | > CombineTypes _ x y                       ~  x ⩓ y
     | CombineTypes (Maybe CharacterSet) (Expr s a) (Expr s a)
-    -- | > Prefer _ False x y                       ~  x ⫽ y
-    --
-    -- The first field is a `True` when the `Prefer` operator is introduced as a
-    -- result of desugaring a @with@ expression
-    | Prefer (Maybe CharacterSet) (PreferAnnotation s a) (Expr s a) (Expr s a)
+    -- | > Prefer _ _ x y                           ~  x ⫽ y
+    | Prefer (Maybe CharacterSet) PreferAnnotation (Expr s a) (Expr s a)
     -- | > RecordCompletion x y                     ~  x::y
     | RecordCompletion (Expr s a) (Expr s a)
     -- | > Merge x y (Just t )                      ~  merge x y : t
@@ -674,12 +662,7 @@ unsafeSubExpressions _ None = pure None
 unsafeSubExpressions f (Union a) = Union <$> traverse (traverse f) a
 unsafeSubExpressions f (Combine cs a b c) = Combine cs a <$> f b <*> f c
 unsafeSubExpressions f (CombineTypes cs a b) = CombineTypes cs <$> f a <*> f b
-unsafeSubExpressions f (Prefer cs a b c) = Prefer cs <$> a' <*> f b <*> f c
-  where
-    a' = case a of
-        PreferFromSource     -> pure PreferFromSource
-        PreferFromWith d     -> PreferFromWith <$> f d
-        PreferFromCompletion -> pure PreferFromCompletion
+unsafeSubExpressions f (Prefer cs a b c) = Prefer cs <$> pure a <*> f b <*> f c
 unsafeSubExpressions f (RecordCompletion a b) = RecordCompletion <$> f a <*> f b
 unsafeSubExpressions f (Merge a b t) = Merge <$> f a <*> f b <*> traverse f t
 unsafeSubExpressions f (ToMap a t) = ToMap <$> f a <*> traverse f t
