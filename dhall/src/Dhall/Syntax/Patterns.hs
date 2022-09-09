@@ -50,6 +50,15 @@ module Dhall.Syntax.Patterns (
         , NaturalSubtract
         , NaturalPlus
         , NaturalTimes
+        , Record
+        , RecordLit
+        , Combine
+        , CombineTypes
+        , Prefer
+        , Project
+        , RecordCompletion
+        , ToMap
+        , With
         , Text
         , TextLit
         , TextAppend
@@ -58,10 +67,15 @@ module Dhall.Syntax.Patterns (
         )
     ) where
 
+import Data.List.NonEmpty (NonEmpty)
 import Data.Sequence     (Seq)
+import Data.Text         (Text)
 import Data.Time         (Day, TimeOfDay, TimeZone)
+import Dhall.Map (Map)
+import {-# SOURCE #-} Dhall.Pretty.Internal (CharacterSet)
 import Dhall.Syntax      (Expr (..))
 import Dhall.Syntax.Double (DhallDouble)
+import Dhall.Syntax.Record (PreferAnnotation, RecordField, WithComponent)
 import Dhall.Syntax.Text (Chunks)
 import Numeric.Natural   (Natural)
 
@@ -71,6 +85,7 @@ import qualified Dhall.Syntax.Double
 import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
+import qualified Dhall.Syntax.Record
 import qualified Dhall.Syntax.Text
 
 --------------------------------------------------------------------------------
@@ -289,6 +304,58 @@ pattern NaturalPlus x y = NaturalExpr (Dhall.Syntax.Natural.NaturalPlus x y)
 -- | > NaturalTimes x y  ~  x * y
 pattern NaturalTimes :: Expr s a -> Expr s a -> Expr s a
 pattern NaturalTimes x y = NaturalExpr (Dhall.Syntax.Natural.NaturalTimes x y)
+
+--------------------------------------------------------------------------------
+-- Record builtin
+--------------------------------------------------------------------------------
+
+-- | > Record [ (k1, RecordField _ t1)  ~  { k1 : t1, k2 : t1 }
+--   >        , (k2, RecordField _ t2)
+--   >        ]
+pattern Record :: Map Text (RecordField s a) -> Expr s a
+pattern Record m = RecordExpr (Dhall.Syntax.Record.Record m)
+
+-- | > RecordLit [ (k1, RecordField _ v1)  ~  { k1 = v1, k2 = v2 }
+--   >           , (k2, RecordField _ v2)
+--   >           ]
+pattern RecordLit :: Map Text (RecordField s a) -> Expr s a
+pattern RecordLit m = RecordExpr (Dhall.Syntax.Record.RecordLit m)
+
+-- | > Combine _ Nothing x y  ~  x ∧ y
+--
+-- The second field is a `Just` when the `Combine` operator is introduced
+-- as a result of desugaring duplicate record fields:
+--
+--   > RecordLit [ (k, RecordField _ (Combine (Just k) x y))  ~  { k = x, k = y }
+--   >           ]
+pattern Combine :: Maybe CharacterSet -> Maybe Text -> Expr s a -> Expr s a -> Expr s a
+pattern Combine charset combine x y = RecordExpr (Dhall.Syntax.Record.Combine charset combine x y)
+
+-- | > CombineTypes _ x y  ~  x ⩓ y
+pattern CombineTypes :: Maybe CharacterSet -> Expr s a -> Expr s a -> Expr s a
+pattern CombineTypes charset x y = RecordExpr (Dhall.Syntax.Record.CombineTypes charset x y)
+
+-- | > Prefer _ _ x y  ~  x ⫽ y
+pattern Prefer :: Maybe CharacterSet -> PreferAnnotation -> Expr s a -> Expr s a -> Expr s a
+pattern Prefer charset prefer x y = RecordExpr (Dhall.Syntax.Record.Prefer charset prefer x y)
+
+-- | > RecordCompletion x y  ~  x::y
+pattern RecordCompletion :: Expr s a -> Expr s a -> Expr s a
+pattern RecordCompletion x y = RecordExpr (Dhall.Syntax.Record.RecordCompletion x y)
+
+-- | > ToMap x (Just t)  ~  toMap x : t
+--   > ToMap x  Nothing  ~  toMap x
+pattern ToMap :: Expr s a -> Maybe (Expr s a) -> Expr s a
+pattern ToMap x type_ = RecordExpr (Dhall.Syntax.Record.ToMap x type_)
+
+-- | > Project e (Left xs)  ~  e.{ xs }
+--   > Project e (Right t)  ~  e.(t)
+pattern Project :: Expr s a -> Either [Text] (Expr s a) -> Expr s a
+pattern Project x proj = RecordExpr (Dhall.Syntax.Record.Project x proj)
+
+-- | > With x y e  ~  x with y = e
+pattern With :: Expr s a -> NonEmpty WithComponent -> Expr s a -> Expr s a
+pattern With x withs y = RecordExpr (Dhall.Syntax.Record.With x withs y)
 
 --------------------------------------------------------------------------------
 -- Text builtin

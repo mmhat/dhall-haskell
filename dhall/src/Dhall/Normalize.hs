@@ -55,6 +55,7 @@ import qualified Dhall.Syntax.Double    as Builtins
 import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
+import qualified Dhall.Syntax.Record as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
 import qualified Lens.Family          as Lens
 
@@ -520,18 +521,18 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
       where
         a' = loop a
     None -> pure None
-    Record kts -> Record . Dhall.Map.sort <$> kts'
+    RecordExpr (Builtins.Record kts) -> Record . Dhall.Map.sort <$> kts'
       where
         f (RecordField s0 expr s1 s2) = (\e -> RecordField s0 e s1 s2) <$> loop expr
         kts' = traverse f kts
-    RecordLit kvs -> RecordLit . Dhall.Map.sort <$> kvs'
+    RecordExpr (Builtins.RecordLit kvs) -> RecordLit . Dhall.Map.sort <$> kvs'
       where
         f (RecordField s0 expr s1 s2) = (\e -> RecordField s0 e s1 s2) <$> loop expr
         kvs' = traverse f kvs
     Union kts -> Union . Dhall.Map.sort <$> kts'
       where
         kts' = traverse (traverse loop) kts
-    Combine cs mk x y -> decide <$> loop x <*> loop y
+    RecordExpr (Builtins.Combine cs mk x y) -> decide <$> loop x <*> loop y
       where
         decide (RecordLit m) r | Data.Foldable.null m =
             r
@@ -544,7 +545,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
               Syntax.makeRecordField $ decide expr expr'
         decide l r =
             Combine cs mk l r
-    CombineTypes cs x y -> decide <$> loop x <*> loop y
+    RecordExpr (Builtins.CombineTypes cs x y) -> decide <$> loop x <*> loop y
       where
         decide (Record m) r | Data.Foldable.null m =
             r
@@ -557,7 +558,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
               Syntax.makeRecordField $ decide expr expr'
         decide l r =
             CombineTypes cs l r
-    Prefer cs _ x y -> decide <$> loop x <*> loop y
+    RecordExpr (Builtins.Prefer cs _ x y) -> decide <$> loop x <*> loop y
       where
         decide (RecordLit m) r | Data.Foldable.null m =
             r
@@ -569,7 +570,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
             l
         decide l r =
             Prefer cs PreferFromSource l r
-    RecordCompletion x y ->
+    RecordExpr (Builtins.RecordCompletion x y) ->
         loop (Annot (Prefer mempty PreferFromCompletion (Field x def) y) (Field x typ))
       where
         def = Syntax.makeFieldSelection "default"
@@ -608,7 +609,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
             _ -> Merge x' y' <$> t'
       where
         t' = traverse loop t
-    ToMap x t        -> do
+    RecordExpr (Builtins.ToMap x t)        -> do
         x' <- loop x
         t' <- traverse loop t
         case x' of
@@ -671,7 +672,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
                 Just v -> pure (Field (Combine cs m l (singletonRecordLit v)) k)
                 Nothing -> loop (Field l k)
             _ -> pure (Field r' k)
-    Project x (Left fields)-> do
+    RecordExpr (Builtins.Project x (Left fields))-> do
         x' <- loop x
         let fieldsSet = Data.Set.fromList fields
         case x' of
@@ -686,7 +687,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
                 loop (Prefer cs PreferFromSource l' r')
             _ | null fields -> pure (RecordLit mempty)
               | otherwise   -> pure (Project x' (Left (Data.Set.toList (Data.Set.fromList fields))))
-    Project r (Right e1) -> do
+    RecordExpr (Builtins.Project r (Right e1)) -> do
         e2 <- loop e1
 
         case e2 of
@@ -704,7 +705,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
         r' <- loop r
 
         pure (Equivalent cs l' r')
-    With e ks v -> do
+    RecordExpr (Builtins.With e ks v) -> do
         e' <- loop e
         v' <- loop v
 
@@ -912,34 +913,34 @@ isNormalized e0 = loop (Syntax.denote e0)
       Optional -> True
       Some a -> loop a
       None -> True
-      Record kts -> Dhall.Map.isSorted kts && all decide kts
+      RecordExpr (Builtins.Record kts) -> Dhall.Map.isSorted kts && all decide kts
         where
           decide (RecordField Nothing exp' Nothing Nothing) = loop exp'
           decide _ = False
-      RecordLit kvs -> Dhall.Map.isSorted kvs && all decide kvs
+      RecordExpr (Builtins.RecordLit kvs) -> Dhall.Map.isSorted kvs && all decide kvs
         where
           decide (RecordField Nothing exp' Nothing Nothing) = loop exp'
           decide _ = False
       Union kts -> Dhall.Map.isSorted kts && all (all loop) kts
-      Combine _ _ x y -> loop x && loop y && decide x y
+      RecordExpr (Builtins.Combine _ _ x y) -> loop x && loop y && decide x y
         where
           decide (RecordLit m) _ | Data.Foldable.null m = False
           decide _ (RecordLit n) | Data.Foldable.null n = False
           decide (RecordLit _) (RecordLit _) = False
           decide  _ _ = True
-      CombineTypes _ x y -> loop x && loop y && decide x y
+      RecordExpr (Builtins.CombineTypes _ x y) -> loop x && loop y && decide x y
         where
           decide (Record m) _ | Data.Foldable.null m = False
           decide _ (Record n) | Data.Foldable.null n = False
           decide (Record _) (Record _) = False
           decide  _ _ = True
-      Prefer _ _ x y -> loop x && loop y && decide x y
+      RecordExpr (Builtins.Prefer _ _ x y) -> loop x && loop y && decide x y
         where
           decide (RecordLit m) _ | Data.Foldable.null m = False
           decide _ (RecordLit n) | Data.Foldable.null n = False
           decide (RecordLit _) (RecordLit _) = False
           decide l r = not (Eval.judgmentallyEqual l r)
-      RecordCompletion _ _ -> False
+      RecordExpr (Builtins.RecordCompletion _ _) -> False
       Merge x y t -> loop x && loop y && all loop t && case x of
           RecordLit _ -> case y of
               Field (Union _) _ -> False
@@ -948,7 +949,7 @@ isNormalized e0 = loop (Syntax.denote e0)
               App None _ -> False
               _ -> True
           _ -> True
-      ToMap x t -> case x of
+      RecordExpr (Builtins.ToMap x t) -> case x of
           RecordLit _ -> False
           _ -> loop x && all loop t
       ShowConstructor x -> loop x && case x of
@@ -972,7 +973,7 @@ isNormalized e0 = loop (Syntax.denote e0)
           Combine _ _ _ (RecordLit m) -> Dhall.Map.keys m == [k] && loop r
           _ -> loop r
       Field _ _ -> False
-      Project r p -> loop r &&
+      RecordExpr (Builtins.Project r p) -> loop r &&
           case p of
               Left s -> case r of
                   RecordLit _ -> False
@@ -984,7 +985,7 @@ isNormalized e0 = loop (Syntax.denote e0)
                   _ -> loop e'
       Assert t -> loop t
       Equivalent _ l r -> loop l && loop r
-      With{} -> False
+      RecordExpr Builtins.With{} -> False
       Note _ e' -> loop e'
       ImportAlt _ _ -> False
       Embed _ -> True

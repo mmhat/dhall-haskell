@@ -29,15 +29,15 @@ module Dhall.Syntax (
     , CharacterSet(..)
     , Dhall.Syntax.Text.Chunks(..)
     , Dhall.Syntax.Double.DhallDouble(..)
-    , PreferAnnotation(..)
+    , Dhall.Syntax.Record.PreferAnnotation(..)
     , Expr(..)
-    , RecordField(..)
-    , makeRecordField
+    , Dhall.Syntax.Record.RecordField(..)
+    , Dhall.Syntax.Record.makeRecordField
     , FunctionBinding(..)
     , makeFunctionBinding
     , FieldSelection(..)
     , makeFieldSelection
-    , WithComponent(..)
+    , Dhall.Syntax.Record.WithComponent(..)
 
     -- ** 'Let'-blocks
     , MultiLet(..)
@@ -98,6 +98,7 @@ import                Data.Traversable           ()
 import                Data.Void                  (Void)
 import                Dhall.Map                  (Map)
 import {-# SOURCE #-} Dhall.Pretty.Internal
+import                Dhall.Syntax.Record        (RecordExpr(..), RecordField(..))
 import                GHC.Generics               (Generic)
 import                Instances.TH.Lift          ()
 import                Language.Haskell.TH.Syntax (Lift)
@@ -115,6 +116,7 @@ import qualified Dhall.Syntax.Import
 import qualified Dhall.Syntax.Integer
 import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
+import qualified Dhall.Syntax.Record
 import qualified Dhall.Syntax.Text
 import qualified Lens.Family          as Lens
 import qualified Prettyprinter        as Pretty
@@ -224,86 +226,6 @@ instance Bifunctor Binding where
 makeBinding :: Text -> Expr s a -> Binding s a
 makeBinding name = Binding Nothing name Nothing Nothing Nothing
 
--- | Used to record the origin of a @//@ operator (i.e. from source code or a
--- product of desugaring)
-data PreferAnnotation
-    = PreferFromSource
-    | PreferFromCompletion
-    deriving (Data, Eq, Generic, Lift, NFData, Ord, Show)
-
--- | Record the field of a record-type and record-literal expression.
--- The reason why we use the same ADT for both of them is because they store
--- the same information.
---
--- For example,
---
--- > { {- A -} x {- B -} : {- C -} T }
---
--- ... or
---
--- > { {- A -} x {- B -} = {- C -} T }
---
--- will be instantiated as follows:
---
--- * @recordFieldSrc0@ corresponds to the @A@ comment.
--- * @recordFieldValue@ is @"T"@
--- * @recordFieldSrc1@ corresponds to the @B@ comment.
--- * @recordFieldSrc2@ corresponds to the @C@ comment.
---
--- Although the @A@ comment isn't annotating the @"T"@ Record Field,
--- this is the best place to keep these comments.
---
--- Note that @recordFieldSrc2@ is always 'Nothing' when the 'RecordField' is for
--- a punned entry, because there is no @=@ sign. For example,
---
--- > { {- A -} x {- B -} }
---
--- will be instantiated as follows:
---
--- * @recordFieldSrc0@ corresponds to the @A@ comment.
--- * @recordFieldValue@ corresponds to @(Var "x")@
--- * @recordFieldSrc1@ corresponds to the @B@ comment.
--- * @recordFieldSrc2@ will be 'Nothing'
---
--- The labels involved in a record using dot-syntax like in this example:
---
--- > { {- A -} a {- B -} . {- C -} b {- D -} . {- E -} c {- F -} = {- G -} e }
---
--- will be instantiated as follows:
---
--- * For both the @a@ and @b@ field, @recordfieldSrc2@ is 'Nothing'
--- * For the @a@ field:
---   * @recordFieldSrc0@ corresponds to the @A@ comment
---   * @recordFieldSrc1@ corresponds to the @B@ comment
--- * For the @b@ field:
---   * @recordFieldSrc0@ corresponds to the @C@ comment
---   * @recordFieldSrc1@ corresponds to the @D@ comment
--- * For the @c@ field:
---   * @recordFieldSrc0@ corresponds to the @E@ comment
---   * @recordFieldSrc1@ corresponds to the @F@ comment
---   * @recordFieldSrc2@ corresponds to the @G@ comment
---
--- That is, for every label except the last one the semantics of
--- @recordFieldSrc0@ and @recordFieldSrc1@ are the same from a regular record
--- label but @recordFieldSrc2@ is always 'Nothing'. For the last keyword, all
--- srcs are 'Just'
-data RecordField s a = RecordField
-    { recordFieldSrc0  :: Maybe s
-    , recordFieldValue :: Expr s a
-    , recordFieldSrc1  :: Maybe s
-    , recordFieldSrc2  :: Maybe s
-    } deriving (Data, Eq, Foldable, Functor, Generic, Lift, NFData, Ord, Show, Traversable)
-
--- | Construct a 'RecordField' with no src information
-makeRecordField :: Expr s a -> RecordField s a
-makeRecordField e = RecordField Nothing e Nothing Nothing
-
-
-instance Bifunctor RecordField where
-    first k (RecordField s0 value s1 s2) =
-        RecordField (k <$> s0) (first k value) (k <$> s1) (k <$> s2)
-    second = fmap
-
 -- | Record the label of a function or a function-type expression
 --
 -- For example,
@@ -361,10 +283,6 @@ data FieldSelection s = FieldSelection
 -- | Smart constructor for 'FieldSelection' with no src information
 makeFieldSelection :: Text -> FieldSelection s
 makeFieldSelection t = FieldSelection Nothing t Nothing
-
--- | A path component for a @with@ expression
-data WithComponent = WithLabel Text | WithQuestion
-    deriving (Data, Eq, Generic, Lift, NFData, Ord, Show)
 
 {-| Syntax tree for expressions
 
@@ -424,6 +342,8 @@ data Expr s a
     | ListExpr {-# UNPACK #-} !(Dhall.Syntax.List.ListExpr s a)
     -- | A builtin natural expression
     | NaturalExpr {-# UNPACK #-} !(Dhall.Syntax.Natural.NaturalExpr s a)
+    -- | A builtin record expression
+    | RecordExpr {-# UNPACK #-} !(Dhall.Syntax.Record.RecordExpr s a)
     -- | A builtin text expression
     | TextExpr {-# UNPACK #-} !(Dhall.Syntax.Text.TextExpr s a)
     -- | > Optional                                 ~  Optional
@@ -432,52 +352,19 @@ data Expr s a
     | Some (Expr s a)
     -- | > None                                     ~  None
     | None
-    -- | > Record [ (k1, RecordField _ t1)          ~  { k1 : t1, k2 : t1 }
-    --   >        , (k2, RecordField _ t2)
-    --   >        ]
-    | Record    (Map Text (RecordField s a))
-    -- | > RecordLit [ (k1, RecordField _ v1)       ~  { k1 = v1, k2 = v2 }
-    --   >           , (k2, RecordField _ v2)
-    --   >           ]
-    | RecordLit (Map Text (RecordField s a))
     -- | > Union        [(k1, Just t1), (k2, Nothing)] ~  < k1 : t1 | k2 >
     | Union     (Map Text (Maybe (Expr s a)))
-    -- | > Combine _ Nothing x y                    ~  x ∧ y
-    --
-    -- The first field is a `Just` when the `Combine` operator is introduced
-    -- as a result of desugaring duplicate record fields:
-    --
-    --   > RecordLit [ ( k                          ~ { k = x, k = y }
-    --   >           , RecordField
-    --   >              _
-    --   >              (Combine (Just k) x y)
-    --   >            )]
-    | Combine (Maybe CharacterSet) (Maybe Text) (Expr s a) (Expr s a)
-    -- | > CombineTypes _ x y                       ~  x ⩓ y
-    | CombineTypes (Maybe CharacterSet) (Expr s a) (Expr s a)
-    -- | > Prefer _ _ x y                           ~  x ⫽ y
-    | Prefer (Maybe CharacterSet) PreferAnnotation (Expr s a) (Expr s a)
-    -- | > RecordCompletion x y                     ~  x::y
-    | RecordCompletion (Expr s a) (Expr s a)
     -- | > Merge x y (Just t )                      ~  merge x y : t
     --   > Merge x y  Nothing                       ~  merge x y
     | Merge (Expr s a) (Expr s a) (Maybe (Expr s a))
-    -- | > ToMap x (Just t)                         ~  toMap x : t
-    --   > ToMap x  Nothing                         ~  toMap x
-    | ToMap (Expr s a) (Maybe (Expr s a))
     -- | > ShowConstructor x                        ~  showConstructor x
     | ShowConstructor (Expr s a)
     -- | > Field e (FieldSelection _ x _)              ~  e.x
     | Field (Expr s a) (FieldSelection s)
-    -- | > Project e (Left xs)                      ~  e.{ xs }
-    --   > Project e (Right t)                      ~  e.(t)
-    | Project (Expr s a) (Either [Text] (Expr s a))
     -- | > Assert e                                 ~  assert : e
     | Assert (Expr s a)
     -- | > Equivalent _ x y                           ~  x ≡ y
     | Equivalent (Maybe CharacterSet) (Expr s a) (Expr s a)
-    -- | > With x y e                               ~  x with y = e
-    | With (Expr s a) (NonEmpty WithComponent) (Expr s a)
     -- | > Note s x                                 ~  e
     | Note s (Expr s a)
     -- | > ImportAlt                                ~  e1 ? e2
@@ -509,8 +396,7 @@ instance Functor (Expr s) where
   fmap f (Embed a) = Embed (f a)
   fmap f (Let b e2) = Let (fmap f b) (fmap f e2)
   fmap f (Note s e1) = Note s (fmap f e1)
-  fmap f (Record a) = Record $ fmap f <$> a
-  fmap f (RecordLit a) = RecordLit $ fmap f <$> a
+  fmap f (RecordExpr expr) = RecordExpr (fmap f expr)
   fmap f (Lam cs fb e) = Lam cs (f <$> fb) (f <$> e)
   fmap f (Field a b) = Field (f <$> a) b
   fmap f expression = Lens.over unsafeSubExpressions (fmap f) expression
@@ -525,13 +411,13 @@ instance Monad (Expr s) where
     return = pure
 
     expression >>= k = case expression of
-        Embed a     -> k a
-        Let a b     -> Let (adaptBinding a) (b >>= k)
-        Note a b    -> Note a (b >>= k)
-        Record a    -> Record $ bindRecordKeyValues <$> a
-        RecordLit a -> RecordLit $ bindRecordKeyValues <$> a
-        Lam cs a b  -> Lam cs (adaptFunctionBinding a) (b >>= k)
-        Field a b   -> Field (a >>= k) b
+        Embed a                  -> k a
+        Let a b                  -> Let (adaptBinding a) (b >>= k)
+        Note a b                 -> Note a (b >>= k)
+        RecordExpr (Record a)    -> RecordExpr $ Record $ bindRecordKeyValues <$> a
+        RecordExpr (RecordLit a) -> RecordExpr $ RecordLit $ bindRecordKeyValues <$> a
+        Lam cs a b               -> Lam cs (adaptFunctionBinding a) (b >>= k)
+        Field a b                -> Field (a >>= k) b
         _ -> Lens.over unsafeSubExpressions (>>= k) expression
       where
         bindRecordKeyValues (RecordField s0 e s1 s2) =
@@ -546,14 +432,14 @@ instance Monad (Expr s) where
         adaptBindingAnnotation (src3, f) = (src3, f >>= k)
 
 instance Bifunctor Expr where
-    first k (Note a b   ) = Note (k a) (first k b)
-    first _ (Embed a    ) = Embed a
-    first k (Let a b    ) = Let (first k a) (first k b)
-    first k (Record a   ) = Record $ first k <$> a
-    first k (RecordLit a) = RecordLit $ first k <$> a
-    first k (Lam cs a b ) = Lam cs (first k a) (first k b)
-    first k (Field a b  ) = Field (first k a) (k <$> b)
-    first k  expression  = Lens.over unsafeSubExpressions (first k) expression
+    first k (Note a b                ) = Note (k a) (first k b)
+    first _ (Embed a                 ) = Embed a
+    first k (Let a b                 ) = Let (first k a) (first k b)
+    first k (RecordExpr (Record a   )) = RecordExpr $ Record $ first k <$> a
+    first k (RecordExpr (RecordLit a)) = RecordExpr $ RecordLit $ first k <$> a
+    first k (Lam cs a b              ) = Lam cs (first k a) (first k b)
+    first k (Field a b               ) = Field (first k a) (k <$> b)
+    first k  expression                = Lens.over unsafeSubExpressions (first k) expression
 
     second = fmap
 
@@ -628,8 +514,8 @@ subExpressionsWith
 subExpressionsWith h _ (Embed a) = h a
 subExpressionsWith _ f (Note a b) = Note a <$> f b
 subExpressionsWith _ f (Let a b) = Let <$> bindingExprs f a <*> f b
-subExpressionsWith _ f (Record a) = Record <$> traverse (recordFieldExprs f) a
-subExpressionsWith _ f (RecordLit a) = RecordLit <$> traverse (recordFieldExprs f) a
+subExpressionsWith _ f (RecordExpr (Record a)) = RecordExpr . Record <$> traverse (recordFieldExprs f) a
+subExpressionsWith _ f (RecordExpr (RecordLit a)) = RecordExpr . RecordLit <$> traverse (recordFieldExprs f) a
 subExpressionsWith _ f (Lam cs fb e) = Lam cs <$> functionBindingExprs f fb <*> f e
 subExpressionsWith _ f (Field a b) = Field <$> f a <*> pure b
 subExpressionsWith _ f expression = unsafeSubExpressions f expression
@@ -655,28 +541,20 @@ unsafeSubExpressions _ (DoubleExpr expr) = pure (DoubleExpr expr)
 unsafeSubExpressions _ (IntegerExpr expr) = pure (IntegerExpr expr)
 unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpressions f expr
 unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
+unsafeSubExpressions f (RecordExpr expr) = RecordExpr <$> Dhall.Syntax.Record.unsafeSubExpressions f expr
 unsafeSubExpressions f (TextExpr expr) = TextExpr <$> Dhall.Syntax.Text.subExpressions f expr
 unsafeSubExpressions _ Optional = pure Optional
 unsafeSubExpressions f (Some a) = Some <$> f a
 unsafeSubExpressions _ None = pure None
 unsafeSubExpressions f (Union a) = Union <$> traverse (traverse f) a
-unsafeSubExpressions f (Combine cs a b c) = Combine cs a <$> f b <*> f c
-unsafeSubExpressions f (CombineTypes cs a b) = CombineTypes cs <$> f a <*> f b
-unsafeSubExpressions f (Prefer cs a b c) = Prefer cs <$> pure a <*> f b <*> f c
-unsafeSubExpressions f (RecordCompletion a b) = RecordCompletion <$> f a <*> f b
 unsafeSubExpressions f (Merge a b t) = Merge <$> f a <*> f b <*> traverse f t
-unsafeSubExpressions f (ToMap a t) = ToMap <$> f a <*> traverse f t
 unsafeSubExpressions f (ShowConstructor a) = ShowConstructor <$> f a
-unsafeSubExpressions f (Project a b) = Project <$> f a <*> traverse f b
 unsafeSubExpressions f (Assert a) = Assert <$> f a
 unsafeSubExpressions f (Equivalent cs a b) = Equivalent cs <$> f a <*> f b
-unsafeSubExpressions f (With a b c) = With <$> f a <*> pure b <*> f c
 unsafeSubExpressions f (ImportAlt l r) = ImportAlt <$> f l <*> f r
 unsafeSubExpressions _ (Let {}) = unhandledConstructor "Let"
 unsafeSubExpressions _ (Note {}) = unhandledConstructor "Note"
 unsafeSubExpressions _ (Embed {}) = unhandledConstructor "Embed"
-unsafeSubExpressions _ (Record {}) = unhandledConstructor "Record"
-unsafeSubExpressions _ (RecordLit {}) = unhandledConstructor "RecordLit"
 unsafeSubExpressions _ (Lam {}) = unhandledConstructor "Lam"
 unsafeSubExpressions _ (Field {}) = unhandledConstructor "Field"
 {-# INLINABLE unsafeSubExpressions #-}
@@ -742,11 +620,11 @@ denote = \case
     Note _ b -> denote b
     Let a b -> Let (denoteBinding a) (denote b)
     Embed a -> Embed a
-    Combine _ _ b c -> Combine Nothing Nothing (denote b) (denote c)
-    CombineTypes _ b c -> CombineTypes Nothing (denote b) (denote c)
-    Prefer _ a b c -> Lens.over unsafeSubExpressions denote $ Prefer Nothing a b c
-    Record a -> Record $ denoteRecordField <$> a
-    RecordLit a -> RecordLit $ denoteRecordField <$> a
+    RecordExpr (Combine _ _ b c) -> RecordExpr (Combine Nothing Nothing (denote b) (denote c))
+    RecordExpr (CombineTypes _ b c) -> RecordExpr (CombineTypes Nothing (denote b) (denote c))
+    RecordExpr (Prefer _ a b c) -> RecordExpr (Lens.over Dhall.Syntax.Record.unsafeSubExpressions denote $ Prefer Nothing a b c)
+    RecordExpr (Record a) -> RecordExpr (Record $ denoteRecordField <$> a)
+    RecordExpr (RecordLit a) -> RecordExpr (RecordLit $ denoteRecordField <$> a)
     Lam _ a b -> Lam Nothing (denoteFunctionBinding a) (denote b)
     Pi _ t a b -> Pi Nothing t (denote a) (denote b)
     Field a (FieldSelection _ b _) -> Field (denote a) (FieldSelection Nothing b Nothing)
@@ -754,6 +632,7 @@ denote = \case
     expression -> Lens.over unsafeSubExpressions denote expression
   where
     denoteRecordField (RecordField _ e _ _) = RecordField Nothing (denote e) Nothing Nothing
+
     denoteBinding (Binding _ c _ d _ e) =
         Binding Nothing c Nothing (fmap denoteBindingAnnotation d) Nothing (denote e)
 

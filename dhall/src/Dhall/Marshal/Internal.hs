@@ -57,7 +57,7 @@ import Data.Vector                      (Vector)
 import Data.Void                        (Void)
 import Data.Word                        (Word16, Word32, Word64, Word8)
 import Dhall.Parser                     (Src (..))
-import Dhall.Syntax                     (Expr (..), RecordField (..))
+import Dhall.Core                       (Expr (..), RecordField (..))
 import GHC.Generics
 import Numeric.Natural                  (Natural)
 import Prelude                          hiding (maybe, sequence)

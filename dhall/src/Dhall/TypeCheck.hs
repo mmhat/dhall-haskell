@@ -87,6 +87,7 @@ import qualified Dhall.Syntax.Double           as Builtins
 import qualified Dhall.Syntax.Integer        as Builtins
 import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Syntax.Natural        as Builtins
+import qualified Dhall.Syntax.Record        as Builtins
 import qualified Dhall.Syntax.Text           as Builtins
 import qualified Dhall.Util
 import qualified Lens.Family
@@ -753,7 +754,7 @@ infer typer = loop
 
             return (VOptional _A')
 
-        Record xTs -> do
+        RecordExpr (Builtins.Record xTs) -> do
             let process x (RecordField {recordFieldValue = _T}) = do
                     tT' <- lift (loop ctx _T)
 
@@ -765,7 +766,7 @@ infer typer = loop
 
             return (VConst c)
 
-        RecordLit xts -> do
+        RecordExpr (Builtins.RecordLit xts) -> do
             let process t = do
                     _T' <- loop ctx $ recordFieldValue t
 
@@ -792,7 +793,8 @@ infer typer = loop
 
             Max c <- fmap Foldable.fold (Dhall.Map.unorderedTraverseWithKey process xTs)
             return (VConst c)
-        Combine _ mk l r -> do
+
+        RecordExpr (Builtins.Combine _ mk l r) -> do
             _L' <- loop ctx l
 
             let l'' = quote names (eval values l)
@@ -841,7 +843,7 @@ infer typer = loop
 
             combineTypes [] xLs' xRs'
 
-        CombineTypes _ l r -> do
+        RecordExpr (Builtins.CombineTypes _ l r) -> do
             _L' <- loop ctx l
 
             let l' = eval values l
@@ -888,7 +890,7 @@ infer typer = loop
 
             return (VConst c)
 
-        Prefer _ _ l r -> do
+        RecordExpr (Builtins.Prefer _ _ l r) -> do
             _L' <- loop ctx l
 
             _R' <- loop ctx r
@@ -915,7 +917,7 @@ infer typer = loop
 
             return (VRecord (Dhall.Map.union xRs' xLs'))
 
-        RecordCompletion l r -> do
+        RecordExpr (Builtins.RecordCompletion l r) -> do
             _L' <- loop ctx l
 
             case _L' of
@@ -1065,7 +1067,7 @@ infer typer = loop
                             let _T₁'' = quote names _T₁'
                             die (AnnotMismatch (Merge t u Nothing) _T₁'' _T₀'')
 
-        ToMap e mT₁ -> do
+        RecordExpr (Builtins.ToMap e mT₁) -> do
             _E' <- loop ctx e
 
             let _E'' = quote names _E'
@@ -1167,7 +1169,7 @@ infer typer = loop
                             let text = Dhall.Pretty.Internal.docToStrictText (Dhall.Pretty.Internal.prettyLabel x)
 
                             die (CantAccess text e'' _E'')
-        Project e (Left xs) -> do
+        RecordExpr (Builtins.Project e (Left xs)) -> do
             case duplicateElement xs of
                 Just x -> do
                     die (DuplicateProjectionLabel x)
@@ -1195,7 +1197,7 @@ infer typer = loop
 
                     die (CantProject text e _E'')
 
-        Project e (Right s) -> do
+        RecordExpr (Builtins.Project e (Right s)) -> do
             _E' <- loop ctx e
 
             let _E'' = quote names _E'
@@ -1281,7 +1283,7 @@ infer typer = loop
 
             return (VConst Type)
 
-        With e₀ ks₀ v₀ -> do
+        RecordExpr (Builtins.With e₀ ks₀ v₀) -> do
             tE₀' <- loop ctx e₀
 
             -- The purpose of this inner loop is to ensure that we only need to

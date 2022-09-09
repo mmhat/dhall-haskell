@@ -79,6 +79,7 @@ import qualified Dhall.Syntax.Double     as Builtins
 import qualified Dhall.Syntax.Integer  as Builtins
 import qualified Dhall.Syntax.List     as Builtins
 import qualified Dhall.Syntax.Natural  as Builtins
+import qualified Dhall.Syntax.Record  as Builtins
 import qualified Dhall.Syntax.Text     as Builtins
 import qualified Text.Printf           as Printf
 
@@ -866,13 +867,13 @@ encodeExpressionInternal encodeEmbed = go
         ListExpr (Builtins.ListAppend l r) ->
             encodeOperator 7 l r
 
-        Combine _ _ l r ->
+        RecordExpr (Builtins.Combine _ _ l r) ->
             encodeOperator 8 l r
 
-        Prefer _ _ l r ->
+        RecordExpr (Builtins.Prefer _ _ l r) ->
             encodeOperator 9 l r
 
-        CombineTypes _ l r ->
+        RecordExpr (Builtins.CombineTypes _ l r) ->
             encodeOperator 10 l r
 
         ImportAlt l r ->
@@ -881,7 +882,7 @@ encodeExpressionInternal encodeEmbed = go
         Equivalent _ l r ->
             encodeOperator 12 l r
 
-        RecordCompletion l r ->
+        RecordExpr (Builtins.RecordCompletion l r) ->
             encodeOperator 13 l r
 
         Some t ->
@@ -903,12 +904,12 @@ encodeExpressionInternal encodeEmbed = go
                 (go u)
                 (go _T)
 
-        Record xTs ->
+        RecordExpr (Builtins.Record xTs) ->
             encodeList2
                 (Encoding.encodeInt 7)
                 (encodeMapWith (go . recordFieldValue) xTs)
 
-        RecordLit xts ->
+        RecordExpr (Builtins.RecordLit xts) ->
             encodeList2
                 (Encoding.encodeInt 8)
                 (encodeMapWith (go. recordFieldValue) xts)
@@ -919,7 +920,7 @@ encodeExpressionInternal encodeEmbed = go
                 (go t)
                 (Encoding.encodeString x)
 
-        Project t (Left xs) ->
+        RecordExpr (Builtins.Project t (Left xs)) ->
             encodeListN
                 (2 + length xs)
                 ( Encoding.encodeInt 10
@@ -927,7 +928,7 @@ encodeExpressionInternal encodeEmbed = go
                 : map Encoding.encodeString xs
                 )
 
-        Project t (Right _T) ->
+        RecordExpr (Builtins.Project t (Right _T)) ->
             encodeList3
                 (Encoding.encodeInt 10)
                 (go t)
@@ -1022,18 +1023,18 @@ encodeExpressionInternal encodeEmbed = go
                 (go t)
                 (go _T)
 
-        ToMap t Nothing ->
+        RecordExpr (Builtins.ToMap t Nothing) ->
             encodeList2
                 (Encoding.encodeInt 27)
                 (go t)
 
-        ToMap t (Just _T) ->
+        RecordExpr (Builtins.ToMap t (Just _T)) ->
             encodeList3
                 (Encoding.encodeInt 27)
                 (go t)
                 (go _T)
 
-        With l ks r ->
+        RecordExpr (Builtins.With l ks r) ->
             encodeList4
                 (Encoding.encodeInt 29)
                 (go l)

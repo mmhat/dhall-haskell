@@ -15,6 +15,8 @@ module Dhall.Core.Builtins
       module Dhall.Syntax.List
     , -- * Natural builtins
       module Dhall.Syntax.Natural
+    , -- * Record builtins
+      module Dhall.Syntax.Record
     , -- * Text builtins
       module Dhall.Syntax.Text
     ) where
@@ -25,4 +27,5 @@ import Dhall.Syntax.Double (DoubleExpr (..))
 import Dhall.Syntax.Integer (IntegerExpr (..))
 import Dhall.Syntax.List    (ListExpr (..))
 import Dhall.Syntax.Natural (NaturalExpr (..))
+import Dhall.Syntax.Record (RecordExpr (..))
 import Dhall.Syntax.Text    (TextExpr (..))

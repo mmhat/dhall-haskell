@@ -23,7 +23,7 @@ import Dhall.Crypto        (SHA256Digest)
 import Dhall.Map           (Map)
 import Dhall.Pretty        (CharacterSet (..), detectCharacterSet)
 import Dhall.Src           (Src)
-import Dhall.Syntax        (Expr (..), Import, Var (..))
+import Dhall.Core          (Expr (..), Import, Var (..))
 import Dhall.Util
     ( Censor (..)
     , Header (..)

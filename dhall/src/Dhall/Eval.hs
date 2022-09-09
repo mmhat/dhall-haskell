@@ -87,6 +87,7 @@ import qualified Dhall.Syntax.Double    as Builtins
 import qualified Dhall.Syntax.Integer as Builtins
 import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
+import qualified Dhall.Syntax.Record as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
 import qualified Text.Printf
 
@@ -773,19 +774,19 @@ eval !env t0 =
             VSome (eval env t)
         None ->
             VPrim $ \ ~a -> VNone a
-        Record kts ->
+        RecordExpr (Builtins.Record kts) ->
             VRecord (Map.sort (eval env . recordFieldValue <$> kts))
-        RecordLit kts ->
+        RecordExpr (Builtins.RecordLit kts) ->
             VRecordLit (Map.sort (eval env . recordFieldValue <$> kts))
         Union kts ->
             VUnion (Map.sort (fmap (fmap (eval env)) kts))
-        Combine _ mk t u ->
+        RecordExpr (Builtins.Combine _ mk t u) ->
             vCombine mk (eval env t) (eval env u)
-        CombineTypes _ t u ->
+        RecordExpr (Builtins.CombineTypes _ t u) ->
             vCombineTypes (eval env t) (eval env u)
-        Prefer _ _ t u ->
+        RecordExpr (Builtins.Prefer _ _ t u) ->
             vPrefer env (eval env t) (eval env u)
-        RecordCompletion t u ->
+        RecordExpr (Builtins.RecordCompletion t u) ->
             eval env (Annot (Prefer mempty PreferFromCompletion (Field t def) u) (Field t typ))
           where
             def = Syntax.makeFieldSelection "default"
@@ -802,7 +803,7 @@ eval !env t0 =
                     | Just t <- Map.lookup "None" m -> t
                     | otherwise                     -> error errorMsg
                 (x', y', ma') -> VMerge x' y' ma'
-        ToMap x ma ->
+        RecordExpr (Builtins.ToMap x ma) ->
             case (eval env x, fmap (eval env) ma) of
                 (VRecordLit m, ma'@(Just _)) | null m ->
                     VListLit ma' Sequence.empty
@@ -830,9 +831,9 @@ eval !env t0 =
                 x' -> VShowConstructor x'
         Field t (Syntax.fieldSelectionLabel -> k) ->
             vField (eval env t) k
-        Project t (Left ks) ->
+        RecordExpr (Builtins.Project t (Left ks)) ->
             vProjectByFields env (eval env t) (Dhall.Set.sort (Dhall.Set.fromList ks))
-        Project t (Right e) ->
+        RecordExpr (Builtins.Project t (Right e)) ->
             case eval env e of
                 VRecord kts ->
                     vProjectByFields env (eval env t) (Dhall.Set.fromSet (Map.keysSet kts))
@@ -842,7 +843,7 @@ eval !env t0 =
             VAssert (eval env t)
         Equivalent _ t u ->
             VEquivalent (eval env t) (eval env u)
-        With e₀ ks v ->
+        RecordExpr (Builtins.With e₀ ks v) ->
             vWith (eval env e₀) ks (eval env v)
         Note _ e ->
             eval env e
@@ -1449,35 +1450,35 @@ alphaNormalize = goEnv EmptyNames
                 Some (go t)
             None ->
                 None
-            Record kts ->
+            RecordExpr (Builtins.Record kts) ->
                 Record (goRecordField <$> kts)
-            RecordLit kts ->
+            RecordExpr (Builtins.RecordLit kts) ->
                 RecordLit (goRecordField <$> kts)
             Union kts ->
                 Union (fmap (fmap go) kts)
-            Combine cs m t u ->
+            RecordExpr (Builtins.Combine cs m t u) ->
                 Combine cs m (go t) (go u)
-            CombineTypes cs t u ->
+            RecordExpr (Builtins.CombineTypes cs t u) ->
                 CombineTypes cs (go t) (go u)
-            Prefer cs b t u ->
+            RecordExpr (Builtins.Prefer cs b t u) ->
                 Prefer cs b (go t) (go u)
-            RecordCompletion t u ->
+            RecordExpr (Builtins.RecordCompletion t u) ->
                 RecordCompletion (go t) (go u)
             Merge x y ma ->
                 Merge (go x) (go y) (fmap go ma)
-            ToMap x ma ->
+            RecordExpr (Builtins.ToMap x ma) ->
                 ToMap (go x) (fmap go ma)
             ShowConstructor x ->
                 ShowConstructor (go x)
             Field t k ->
                 Field (go t) k
-            Project t ks ->
+            RecordExpr (Builtins.Project t ks) ->
                 Project (go t) (fmap go ks)
             Assert t ->
                 Assert (go t)
             Equivalent cs t u ->
                 Equivalent cs (go t) (go u)
-            With e k v ->
+            RecordExpr (Builtins.With e k v) ->
                 With (go e) k (go v)
             Note s e ->
                 Note s (go e)

@@ -355,25 +355,17 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "IntegerExpr")
             % (1 :: W "ListExpr")
             % (1 :: W "NaturalExpr")
+            % (1 :: W "RecordExpr")
             % (1 :: W "TextExpr")
             % (1 :: W "Optional")
             % (7 :: W "Some")
             % (1 :: W "None")
-            % (1 :: W "Record")
-            % (7 :: W "RecordLit")
             % (1 :: W "Union")
-            % (7 :: W "Combine")
-            % (1 :: W "CombineTypes")
-            % (7 :: W "Prefer")
-            % (7 :: W "RecordCompletion")
             % (1 :: W "Merge")
-            % (1 :: W "ToMap")
             % (1 :: W "ShowConstructor")
             % (7 :: W "Field")
-            % (7 :: W "Project")
             % (1 :: W "Assert")
             % (1 :: W "Equivalent")
-            % (1 :: W "With")
             % (0 :: W "Note")
             % (7 :: W "ImportAlt")
             % (7 :: W "Embed")
@@ -508,6 +500,28 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.NaturalExpr s a) wher
             % (1 :: W "NaturalSubtract")
             % (1 :: W "NaturalPlus")
             % (1 :: W "NaturalTimes")
+            % ()
+
+    shrink = genericShrink
+
+instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.RecordExpr s a) where
+    arbitrary = Generic.Random.genericArbitrary weights
+      where
+        -- These weights determine the frequency of constructors in the generated
+        -- RecordExpr.
+        -- They will fail to compile if the constructors don't appear in the order
+        -- in which they are defined in 'RecordExpr'!
+        weights :: Weights (Builtins.RecordExpr s a)
+        weights =
+              (1 :: W "Record")
+            % (7 :: W "RecordLit")
+            % (7 :: W "Combine")
+            % (1 :: W "CombineTypes")
+            % (7 :: W "Prefer")
+            % (7 :: W "RecordCompletion")
+            % (1 :: W "ToMap")
+            % (7 :: W "Project")
+            % (1 :: W "With")
             % ()
 
     shrink = genericShrink
