@@ -57,6 +57,7 @@ import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
 import qualified Dhall.Syntax.Record as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
+import qualified Dhall.Syntax.Union    as Builtins
 import qualified Lens.Family          as Lens
 
 {-| Returns `True` if two expressions are α-equivalent and β-equivalent and
@@ -516,11 +517,11 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
     ListExpr Builtins.ListLast -> pure ListLast
     ListExpr Builtins.ListIndexed -> pure ListIndexed
     ListExpr Builtins.ListReverse -> pure ListReverse
-    Optional -> pure Optional
-    Some a -> Some <$> a'
+    UnionExpr Builtins.Optional -> pure Optional
+    UnionExpr (Builtins.Some a) -> Some <$> a'
       where
         a' = loop a
-    None -> pure None
+    UnionExpr Builtins.None -> pure None
     RecordExpr (Builtins.Record kts) -> Record . Dhall.Map.sort <$> kts'
       where
         f (RecordField s0 expr s1 s2) = (\e -> RecordField s0 e s1 s2) <$> loop expr
@@ -529,7 +530,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
       where
         f (RecordField s0 expr s1 s2) = (\e -> RecordField s0 e s1 s2) <$> loop expr
         kvs' = traverse f kvs
-    Union kts -> Union . Dhall.Map.sort <$> kts'
+    UnionExpr (Builtins.Union kts) -> Union . Dhall.Map.sort <$> kts'
       where
         kts' = traverse (traverse loop) kts
     RecordExpr (Builtins.Combine cs mk x y) -> decide <$> loop x <*> loop y
@@ -575,7 +576,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
       where
         def = Syntax.makeFieldSelection "default"
         typ = Syntax.makeFieldSelection "Type"
-    Merge x y t      -> do
+    UnionExpr (Builtins.Merge x y t)      -> do
         x' <- loop x
         y' <- loop y
         case x' of
@@ -633,7 +634,7 @@ normalizeWithM ctx e0 = loop (Syntax.denote e0)
                 return (ListLit listType keyValues)
             _ ->
                 return (ToMap x' t')
-    ShowConstructor x -> do
+    UnionExpr (Builtins.ShowConstructor x) -> do
         x' <- loop x
         return $ case x' of
             Field (Union ktsY) (Syntax.fieldSelectionLabel -> kY) ->
@@ -910,9 +911,9 @@ isNormalized e0 = loop (Syntax.denote e0)
       ListExpr Builtins.ListLast -> True
       ListExpr Builtins.ListIndexed -> True
       ListExpr Builtins.ListReverse -> True
-      Optional -> True
-      Some a -> loop a
-      None -> True
+      UnionExpr Builtins.Optional -> True
+      UnionExpr (Builtins.Some a) -> loop a
+      UnionExpr Builtins.None -> True
       RecordExpr (Builtins.Record kts) -> Dhall.Map.isSorted kts && all decide kts
         where
           decide (RecordField Nothing exp' Nothing Nothing) = loop exp'
@@ -921,7 +922,7 @@ isNormalized e0 = loop (Syntax.denote e0)
         where
           decide (RecordField Nothing exp' Nothing Nothing) = loop exp'
           decide _ = False
-      Union kts -> Dhall.Map.isSorted kts && all (all loop) kts
+      UnionExpr (Builtins.Union kts) -> Dhall.Map.isSorted kts && all (all loop) kts
       RecordExpr (Builtins.Combine _ _ x y) -> loop x && loop y && decide x y
         where
           decide (RecordLit m) _ | Data.Foldable.null m = False
@@ -941,7 +942,7 @@ isNormalized e0 = loop (Syntax.denote e0)
           decide (RecordLit _) (RecordLit _) = False
           decide l r = not (Eval.judgmentallyEqual l r)
       RecordExpr (Builtins.RecordCompletion _ _) -> False
-      Merge x y t -> loop x && loop y && all loop t && case x of
+      UnionExpr (Builtins.Merge x y t) -> loop x && loop y && all loop t && case x of
           RecordLit _ -> case y of
               Field (Union _) _ -> False
               App (Field (Union _) _) _ -> False
@@ -952,7 +953,7 @@ isNormalized e0 = loop (Syntax.denote e0)
       RecordExpr (Builtins.ToMap x t) -> case x of
           RecordLit _ -> False
           _ -> loop x && all loop t
-      ShowConstructor x -> loop x && case x of
+      UnionExpr (Builtins.ShowConstructor x) -> loop x && case x of
           Field (Union kts) (Syntax.fieldSelectionLabel -> k) ->
               case Dhall.Map.lookup k kts of
                   Just Nothing -> False

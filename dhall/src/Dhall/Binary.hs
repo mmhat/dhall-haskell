@@ -81,6 +81,7 @@ import qualified Dhall.Syntax.List     as Builtins
 import qualified Dhall.Syntax.Natural  as Builtins
 import qualified Dhall.Syntax.Record  as Builtins
 import qualified Dhall.Syntax.Text     as Builtins
+import qualified Dhall.Syntax.Union     as Builtins
 import qualified Text.Printf           as Printf
 
 {-| Convert a function applied to multiple arguments to the base function and
@@ -765,10 +766,10 @@ encodeExpressionInternal encodeEmbed = go
         BoolExpr Builtins.Bool ->
             Encoding.encodeUtf8ByteArray "Bool"
 
-        Optional ->
+        UnionExpr Builtins.Optional ->
             Encoding.encodeUtf8ByteArray "Optional"
 
-        None ->
+        UnionExpr Builtins.None ->
             Encoding.encodeUtf8ByteArray "None"
 
         NaturalExpr Builtins.Natural ->
@@ -885,19 +886,19 @@ encodeExpressionInternal encodeEmbed = go
         RecordExpr (Builtins.RecordCompletion l r) ->
             encodeOperator 13 l r
 
-        Some t ->
+        UnionExpr (Builtins.Some t) ->
             encodeList3
                 (Encoding.encodeInt 5)
                 Encoding.encodeNull
                 (go t)
 
-        Merge t u Nothing ->
+        UnionExpr (Builtins.Merge t u Nothing) ->
             encodeList3
                 (Encoding.encodeInt 6)
                 (go t)
                 (go u)
 
-        Merge t u (Just _T) ->
+        UnionExpr (Builtins.Merge t u (Just _T)) ->
             encodeList4
                 (Encoding.encodeInt 6)
                 (go t)
@@ -934,7 +935,7 @@ encodeExpressionInternal encodeEmbed = go
                 (go t)
                 (encodeList1 (go _T))
 
-        Union xTs ->
+        UnionExpr (Builtins.Union xTs) ->
             encodeList2
                 (Encoding.encodeInt 11)
                 (encodeMapWith encodeValue xTs)
@@ -1087,7 +1088,7 @@ encodeExpressionInternal encodeEmbed = go
 
             (_HH, _MM) = abs minutes `divMod` 60
 
-        ShowConstructor t ->
+        UnionExpr (Builtins.ShowConstructor t) ->
             encodeList2
                 (Encoding.encodeInt 34)
                 (go t)

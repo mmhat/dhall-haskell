@@ -50,7 +50,7 @@ module Dhall.Syntax (
     , unsafeSubExpressions
     , Dhall.Syntax.Text.chunkExprs
     , bindingExprs
-    , recordFieldExprs
+    , Dhall.Syntax.Record.recordFieldExprs
     , functionBindingExprs
 
     -- ** Handling 'Note's
@@ -96,7 +96,6 @@ import                Data.String                (IsString (..))
 import                Data.Text                  (Text)
 import                Data.Traversable           ()
 import                Data.Void                  (Void)
-import                Dhall.Map                  (Map)
 import {-# SOURCE #-} Dhall.Pretty.Internal
 import                Dhall.Syntax.Record        (RecordExpr(..), RecordField(..))
 import                GHC.Generics               (Generic)
@@ -118,6 +117,7 @@ import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Record
 import qualified Dhall.Syntax.Text
+import qualified Dhall.Syntax.Union
 import qualified Lens.Family          as Lens
 import qualified Prettyprinter        as Pretty
 
@@ -346,19 +346,8 @@ data Expr s a
     | RecordExpr {-# UNPACK #-} !(Dhall.Syntax.Record.RecordExpr s a)
     -- | A builtin text expression
     | TextExpr {-# UNPACK #-} !(Dhall.Syntax.Text.TextExpr s a)
-    -- | > Optional                                 ~  Optional
-    | Optional
-    -- | > Some e                                   ~  Some e
-    | Some (Expr s a)
-    -- | > None                                     ~  None
-    | None
-    -- | > Union        [(k1, Just t1), (k2, Nothing)] ~  < k1 : t1 | k2 >
-    | Union     (Map Text (Maybe (Expr s a)))
-    -- | > Merge x y (Just t )                      ~  merge x y : t
-    --   > Merge x y  Nothing                       ~  merge x y
-    | Merge (Expr s a) (Expr s a) (Maybe (Expr s a))
-    -- | > ShowConstructor x                        ~  showConstructor x
-    | ShowConstructor (Expr s a)
+    -- | A builtin union expression
+    | UnionExpr {-# UNPACK #-} !(Dhall.Syntax.Union.UnionExpr s a)
     -- | > Field e (FieldSelection _ x _)              ~  e.x
     | Field (Expr s a) (FieldSelection s)
     -- | > Assert e                                 ~  assert : e
@@ -543,12 +532,7 @@ unsafeSubExpressions f (ListExpr expr) = ListExpr <$> Dhall.Syntax.List.subExpre
 unsafeSubExpressions f (NaturalExpr expr) = NaturalExpr <$> Dhall.Syntax.Natural.subExpressions f expr
 unsafeSubExpressions f (RecordExpr expr) = RecordExpr <$> Dhall.Syntax.Record.unsafeSubExpressions f expr
 unsafeSubExpressions f (TextExpr expr) = TextExpr <$> Dhall.Syntax.Text.subExpressions f expr
-unsafeSubExpressions _ Optional = pure Optional
-unsafeSubExpressions f (Some a) = Some <$> f a
-unsafeSubExpressions _ None = pure None
-unsafeSubExpressions f (Union a) = Union <$> traverse (traverse f) a
-unsafeSubExpressions f (Merge a b t) = Merge <$> f a <*> f b <*> traverse f t
-unsafeSubExpressions f (ShowConstructor a) = ShowConstructor <$> f a
+unsafeSubExpressions f (UnionExpr expr) = UnionExpr <$> Dhall.Syntax.Union.subExpressions f expr
 unsafeSubExpressions f (Assert a) = Assert <$> f a
 unsafeSubExpressions f (Equivalent cs a b) = Equivalent cs <$> f a <*> f b
 unsafeSubExpressions f (ImportAlt l r) = ImportAlt <$> f l <*> f r
@@ -688,11 +672,10 @@ reservedIdentifiers = reservedKeywords <>
     Dhall.Syntax.List.reservedIdentifiers <>
     Dhall.Syntax.Natural.reservedIdentifiers <>
     Dhall.Syntax.Text.reservedIdentifiers <>
+    Dhall.Syntax.Union.reservedIdentifiers <>
     Data.HashSet.fromList
         [ -- Builtins according to the `builtin` rule in the grammar
-          "Optional"
-        , "None"
-        , "Type"
+          "Type"
         , "Kind"
         , "Sort"
         ]

@@ -357,12 +357,7 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Expr s a) where
             % (1 :: W "NaturalExpr")
             % (1 :: W "RecordExpr")
             % (1 :: W "TextExpr")
-            % (1 :: W "Optional")
-            % (7 :: W "Some")
-            % (1 :: W "None")
-            % (1 :: W "Union")
-            % (1 :: W "Merge")
-            % (1 :: W "ShowConstructor")
+            % (1 :: W "UnionExpr")
             % (7 :: W "Field")
             % (1 :: W "Assert")
             % (1 :: W "Equivalent")
@@ -528,6 +523,25 @@ instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.RecordExpr s a) where
 
 instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.TextExpr s a) where
     arbitrary = Generic.Random.genericArbitrary Generic.Random.uniform
+
+    shrink = genericShrink
+
+instance (Arbitrary s, Arbitrary a) => Arbitrary (Builtins.UnionExpr s a) where
+    arbitrary = Generic.Random.genericArbitrary weights
+      where
+        -- These weights determine the frequency of constructors in the generated
+        -- UnionExpr.
+        -- They will fail to compile if the constructors don't appear in the order
+        -- in which they are defined in 'UnionExpr'!
+        weights :: Weights (Builtins.UnionExpr s a)
+        weights =
+              (1 :: W "Optional")
+            % (7 :: W "Some")
+            % (1 :: W "None")
+            % (1 :: W "Union")
+            % (1 :: W "Merge")
+            % (1 :: W "ShowConstructor")
+            % ()
 
     shrink = genericShrink
 

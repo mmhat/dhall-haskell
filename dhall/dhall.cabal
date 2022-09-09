@@ -371,6 +371,7 @@ Library
         Dhall.Syntax.Patterns
         Dhall.Syntax.Record
         Dhall.Syntax.Text
+        Dhall.Syntax.Union
         Dhall.URL
         Paths_dhall
     Autogen-Modules:

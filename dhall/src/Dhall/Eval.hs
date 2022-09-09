@@ -89,6 +89,7 @@ import qualified Dhall.Syntax.List    as Builtins
 import qualified Dhall.Syntax.Natural as Builtins
 import qualified Dhall.Syntax.Record as Builtins
 import qualified Dhall.Syntax.Text    as Builtins
+import qualified Dhall.Syntax.Union    as Builtins
 import qualified Text.Printf
 
 data Environment a
@@ -768,17 +769,17 @@ eval !env t0 =
                     VListLit Nothing (Sequence.reverse as)
                 t ->
                     VListReverse a t
-        Optional ->
+        UnionExpr Builtins.Optional ->
             VPrim VOptional
-        Some t ->
+        UnionExpr (Builtins.Some t) ->
             VSome (eval env t)
-        None ->
+        UnionExpr Builtins.None ->
             VPrim $ \ ~a -> VNone a
         RecordExpr (Builtins.Record kts) ->
             VRecord (Map.sort (eval env . recordFieldValue <$> kts))
         RecordExpr (Builtins.RecordLit kts) ->
             VRecordLit (Map.sort (eval env . recordFieldValue <$> kts))
-        Union kts ->
+        UnionExpr (Builtins.Union kts) ->
             VUnion (Map.sort (fmap (fmap (eval env)) kts))
         RecordExpr (Builtins.Combine _ mk t u) ->
             vCombine mk (eval env t) (eval env u)
@@ -791,7 +792,7 @@ eval !env t0 =
           where
             def = Syntax.makeFieldSelection "default"
             typ = Syntax.makeFieldSelection "Type"
-        Merge x y ma ->
+        UnionExpr (Builtins.Merge x y ma) ->
             case (eval env x, eval env y, fmap (eval env) ma) of
                 (VRecordLit m, VInject _ k mt, _)
                     | Just f <- Map.lookup k m -> maybe f (vApp f) mt
@@ -821,7 +822,7 @@ eval !env t0 =
                     in  VListLit Nothing s
                 (x', ma') ->
                     VToMap x' ma'
-        ShowConstructor x ->
+        UnionExpr (Builtins.ShowConstructor x) ->
             case eval env x of
                 VInject m k _
                     | Just _ <- Map.lookup k m -> VTextLit (VChunks [] k)
@@ -1444,17 +1445,17 @@ alphaNormalize = goEnv EmptyNames
                 ListIndexed
             ListExpr Builtins.ListReverse ->
                 ListReverse
-            Optional ->
+            UnionExpr Builtins.Optional ->
                 Optional
-            Some t ->
+            UnionExpr (Builtins.Some t) ->
                 Some (go t)
-            None ->
+            UnionExpr Builtins.None ->
                 None
             RecordExpr (Builtins.Record kts) ->
                 Record (goRecordField <$> kts)
             RecordExpr (Builtins.RecordLit kts) ->
                 RecordLit (goRecordField <$> kts)
-            Union kts ->
+            UnionExpr (Builtins.Union kts) ->
                 Union (fmap (fmap go) kts)
             RecordExpr (Builtins.Combine cs m t u) ->
                 Combine cs m (go t) (go u)
@@ -1464,11 +1465,11 @@ alphaNormalize = goEnv EmptyNames
                 Prefer cs b (go t) (go u)
             RecordExpr (Builtins.RecordCompletion t u) ->
                 RecordCompletion (go t) (go u)
-            Merge x y ma ->
+            UnionExpr (Builtins.Merge x y ma) ->
                 Merge (go x) (go y) (fmap go ma)
             RecordExpr (Builtins.ToMap x ma) ->
                 ToMap (go x) (fmap go ma)
-            ShowConstructor x ->
+            UnionExpr (Builtins.ShowConstructor x) ->
                 ShowConstructor (go x)
             Field t k ->
                 Field (go t) k

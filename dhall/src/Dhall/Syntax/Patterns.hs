@@ -64,6 +64,12 @@ module Dhall.Syntax.Patterns (
         , TextAppend
         , TextReplace
         , TextShow
+        , Optional
+        , Some
+        , None
+        , Union
+        , Merge
+        , ShowConstructor
         )
     ) where
 
@@ -87,6 +93,7 @@ import qualified Dhall.Syntax.List
 import qualified Dhall.Syntax.Natural
 import qualified Dhall.Syntax.Record
 import qualified Dhall.Syntax.Text
+import qualified Dhall.Syntax.Union
 
 --------------------------------------------------------------------------------
 -- Bool builtin
@@ -380,3 +387,32 @@ pattern TextReplace = TextExpr Dhall.Syntax.Text.TextReplace
 -- | > TextShow  ~  Text/show
 pattern TextShow :: Expr s a
 pattern TextShow = TextExpr Dhall.Syntax.Text.TextShow
+
+--------------------------------------------------------------------------------
+-- Text builtin
+--------------------------------------------------------------------------------
+
+-- | > Optional  ~  Optional
+pattern Optional :: Expr s a
+pattern Optional = UnionExpr Dhall.Syntax.Union.Optional
+
+-- | > Some e  ~  Some e
+pattern Some :: Expr s a -> Expr s a
+pattern Some expr = UnionExpr (Dhall.Syntax.Union.Some expr)
+
+-- | > None  ~  None
+pattern None :: Expr s a
+pattern None = UnionExpr Dhall.Syntax.Union.None
+
+-- | > Union [(k1, Just t1), (k2, Nothing)]  ~  < k1 : t1 | k2 >
+pattern Union :: Map Text (Maybe (Expr s a)) -> Expr s a
+pattern Union m = UnionExpr (Dhall.Syntax.Union.Union m)
+
+-- | > Merge x y (Just t )  ~  merge x y : t
+--   > Merge x y  Nothing   ~  merge x y
+pattern Merge :: Expr s a -> Expr s a -> Maybe (Expr s a) -> Expr s a
+pattern Merge x y type_ = UnionExpr (Dhall.Syntax.Union.Merge x y type_)
+
+-- | > ShowConstructor x  ~  showConstructor x
+pattern ShowConstructor :: Expr s a -> Expr s a
+pattern ShowConstructor expr = UnionExpr (Dhall.Syntax.Union.ShowConstructor expr)

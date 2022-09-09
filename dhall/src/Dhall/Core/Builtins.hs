@@ -19,6 +19,8 @@ module Dhall.Core.Builtins
       module Dhall.Syntax.Record
     , -- * Text builtins
       module Dhall.Syntax.Text
+    , -- * Union builtins
+      module Dhall.Syntax.Union
     ) where
 
 import Dhall.Syntax.Bool    (BoolExpr (..))
@@ -29,3 +31,4 @@ import Dhall.Syntax.List    (ListExpr (..))
 import Dhall.Syntax.Natural (NaturalExpr (..))
 import Dhall.Syntax.Record (RecordExpr (..))
 import Dhall.Syntax.Text    (TextExpr (..))
+import Dhall.Syntax.Union    (UnionExpr (..))

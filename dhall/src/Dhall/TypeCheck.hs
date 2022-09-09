@@ -89,6 +89,7 @@ import qualified Dhall.Syntax.List           as Builtins
 import qualified Dhall.Syntax.Natural        as Builtins
 import qualified Dhall.Syntax.Record        as Builtins
 import qualified Dhall.Syntax.Text           as Builtins
+import qualified Dhall.Syntax.Union           as Builtins
 import qualified Dhall.Util
 import qualified Lens.Family
 import qualified Prettyprinter               as Pretty
@@ -733,13 +734,13 @@ infer typer = loop
         ListExpr Builtins.ListReverse ->
             return (VHPi "a" (VConst Type) (\a -> VList a ~> VList a))
 
-        Optional ->
+        UnionExpr Builtins.Optional ->
             return (VConst Type ~> VConst Type)
 
-        None ->
+        UnionExpr Builtins.None ->
             return (VHPi "A" (VConst Type) (\_A -> VOptional _A))
 
-        Some a -> do
+        UnionExpr (Builtins.Some a) -> do
             _A' <- loop ctx a
 
             tA' <- loop ctx (quote names _A')
@@ -780,7 +781,7 @@ infer typer = loop
 
             return (VRecord xTs)
 
-        Union xTs -> do
+        UnionExpr (Builtins.Union xTs) -> do
             let process _ Nothing =
                     return mempty
 
@@ -933,7 +934,7 @@ infer typer = loop
               where
                 def = Syntax.makeFieldSelection "default"
                 typ = Syntax.makeFieldSelection "Type"
-        Merge t u mT₁ -> do
+        UnionExpr (Builtins.Merge t u mT₁) -> do
             _T' <- loop ctx t
 
             yTs' <- case _T' of
@@ -1135,7 +1136,7 @@ infer typer = loop
 
                        die (MapTypeMismatch (quote names (mapType _T')) _T₁'')
 
-        ShowConstructor e -> do
+        UnionExpr (Builtins.ShowConstructor e) -> do
             _E' <- loop ctx e
             case _E' of
               VUnion _ -> pure VText
