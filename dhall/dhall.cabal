@@ -327,6 +327,7 @@ Library
         Dhall.Crypto
         Dhall.Diff
         Dhall.DirectoryTree
+        Dhall.DirectoryTree.Types
         Dhall.Format
         Dhall.Freeze
         Dhall.Import
@@ -358,7 +359,6 @@ Library
         Exposed-Modules:
           Dhall.Deriving
     Other-Modules:
-        Dhall.DirectoryTree.Types
         Dhall.Eval
         Dhall.Import.Types
         Dhall.Import.Headers
