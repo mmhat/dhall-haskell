@@ -64,6 +64,7 @@ module Dhall.Marshal.Encode
 import Control.Monad.Trans.State.Strict
 import Data.Functor.Contravariant           (Contravariant (..), Op (..), (>$<))
 import Data.Functor.Contravariant.Divisible (Divisible (..), divided)
+import Data.Functor.Identity                (Identity (..))
 import Dhall.Parser                         (Src (..))
 import Dhall.Syntax
     ( Chunks (..)
@@ -338,6 +339,9 @@ instance ToDhall () where
         embed = const (RecordLit mempty)
 
         declared = Record mempty
+
+instance ToDhall a => ToDhall (Identity a) where
+    injectWith inputNormalizer = Identity >$< injectWith inputNormalizer
 
 instance ToDhall a => ToDhall (Maybe a) where
     injectWith inputNormalizer = Encoder embedOut declaredOut

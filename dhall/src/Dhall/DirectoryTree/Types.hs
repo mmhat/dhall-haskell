@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveTraversable  #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
@@ -27,26 +28,25 @@ module Dhall.DirectoryTree.Types
     , isMetadataSupported
     ) where
 
-import Data.Functor.Identity    (Identity (..))
-import Data.Sequence            (Seq)
-import Data.Text                (Text)
-import Dhall.Marshal.Decode
-    ( Decoder (..)
-    , FromDhall (..)
-    , Generic
-    , InputNormalizer
-    , InterpretOptions (..)
-    )
-import Dhall.Syntax             (Expr (..), FieldSelection (..), Var (..))
-import System.PosixCompat.Types (GroupID, UserID)
+import Data.Coerce                (coerce)
+import Data.Functor.Contravariant ((>$<))
+import Data.Functor.Identity      (Identity (..))
+import Data.Sequence              (Seq)
+import Data.Text                  (Text)
+import Data.Word                  (Word32)
+import Dhall.Marshal.Internal     (Generic, InputNormalizer, InterpretOptions (..), defaultInterpretOptions)
+import Dhall.Marshal.Decode       ( Decoder (..), FromDhall (..))
+import Dhall.Marshal.Encode       (Encoder(..), ToDhall(..))
+import Dhall.Syntax               (Expr (..), FieldSelection (..), Var (..))
+import System.PosixCompat.Types   (GroupID, UserID)
 
 import qualified Data.Text                as Text
 import qualified Dhall.Marshal.Decode     as Decode
+import qualified Dhall.Marshal.Encode     as Encode
 import qualified System.PosixCompat.Files as Posix
 
 #ifdef mingw32_HOST_OS
 import Control.Monad            (unless)
-import Data.Word                (Word32)
 import System.IO                (hPutStrLn, stderr)
 import System.PosixCompat.Types (CMode)
 
@@ -94,7 +94,7 @@ data Entry a = Entry
     , entryGroup :: Maybe Group
     , entryMode :: Maybe (Mode Maybe)
     }
-    deriving (Eq, Generic, Ord, Show)
+    deriving (Eq, Foldable, Functor, Generic, Ord, Show, Traversable)
 
 instance FromDhall a => FromDhall (Entry a) where
     autoWith = Decode.genericAutoWithInputNormalizer Decode.defaultInterpretOptions
@@ -112,9 +112,15 @@ instance FromDhall User
 #ifdef mingw32_HOST_OS
 instance FromDhall UserID where
     autoWith normalizer = Unsafe.Coerce.unsafeCoerce <$> autoWith @Word32 normalizer
+
+instance ToDhall UserID where
+    injectWith normalizer = Unsafe.Coerce.unsafeCoerce >$< injectWith @Word32 normalizer
 #else
 instance FromDhall Posix.CUid where
     autoWith normalizer = Posix.CUid <$> autoWith normalizer
+
+instance ToDhall Posix.CUid where
+    injectWith normalizer = coerce @_ @Word32 >$< injectWith normalizer
 #endif
 
 -- | A group identified either by id or name.
@@ -128,9 +134,15 @@ instance FromDhall Group
 #ifdef mingw32_HOST_OS
 instance FromDhall GroupID where
     autoWith normalizer = Unsafe.Coerce.unsafeCoerce <$> autoWith @Word32 normalizer
+
+instance ToDhall GroupID where
+    injectWith normalizer = Unsafe.Coerce.unsafeCoerce >$< injectWith @Word32 normalizer
 #else
 instance FromDhall Posix.CGid where
     autoWith normalizer = Posix.CGid <$> autoWith normalizer
+
+instance ToDhall Posix.CGid where
+    injectWith normalizer = coerce @_ @Word32 >$< injectWith normalizer
 #endif
 
 -- | A filesystem mode. See chmod(1).
@@ -160,7 +172,18 @@ instance FromDhall (Mode Maybe) where
     autoWith = modeDecoder
 
 modeDecoder :: FromDhall (f (Access f)) => InputNormalizer -> Decoder (Mode f)
-modeDecoder = Decode.genericAutoWithInputNormalizer Decode.defaultInterpretOptions
+modeDecoder = Decode.genericAutoWithInputNormalizer defaultInterpretOptions
+    { fieldModifier = Text.toLower . Text.drop (Text.length "mode")
+    }
+
+instance ToDhall (Mode Identity) where
+    injectWith = modeEncoder
+
+instance ToDhall (Mode Maybe) where
+    injectWith = modeEncoder
+
+modeEncoder :: ToDhall (f (Access f)) => InputNormalizer -> Encoder (Mode f)
+modeEncoder = Encode.genericToDhallWithInputNormalizer defaultInterpretOptions
     { fieldModifier = Text.toLower . Text.drop (Text.length "mode")
     }
 
@@ -186,7 +209,18 @@ instance FromDhall (Access Maybe) where
     autoWith = accessDecoder
 
 accessDecoder :: FromDhall (f Bool) => InputNormalizer -> Decoder (Access f)
-accessDecoder = Decode.genericAutoWithInputNormalizer Decode.defaultInterpretOptions
+accessDecoder = Decode.genericAutoWithInputNormalizer defaultInterpretOptions
+    { fieldModifier = Text.toLower . Text.drop (Text.length "access")
+    }
+
+instance ToDhall (Access Identity) where
+    injectWith = accessEncoder
+
+instance ToDhall (Access Maybe) where
+    injectWith = accessEncoder
+
+accessEncoder :: ToDhall (f Bool) => InputNormalizer -> Encoder (Access f)
+accessEncoder = Encode.genericToDhallWithInputNormalizer defaultInterpretOptions
     { fieldModifier = Text.toLower . Text.drop (Text.length "access")
     }
 
