@@ -108,6 +108,7 @@ data User
     deriving (Eq, Generic, Ord, Show)
 
 instance FromDhall User
+instance ToDhall User
 
 #ifdef mingw32_HOST_OS
 instance FromDhall UserID where
@@ -130,6 +131,7 @@ data Group
     deriving (Eq, Generic, Ord, Show)
 
 instance FromDhall Group
+instance ToDhall Group
 
 #ifdef mingw32_HOST_OS
 instance FromDhall GroupID where
