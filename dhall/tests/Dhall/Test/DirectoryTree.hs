@@ -37,7 +37,7 @@ fixpointedType :: TestTree
 fixpointedType = testCase "Type is as expected" $ do
     let file = "./tests/to-directory-tree/type.dhall"
     ref <- Dhall.inputExpr file
-    expected' <- case directoryTreeType of
+    expected' <- case Dhall.expected (Dhall.auto :: Dhall.Decoder DirectoryTree) of
         Failure e -> assertFailure $ show e
         Success expr -> return expr
     assertBool "Type mismatch" $ expected' `Dhall.Core.judgmentallyEqual` ref

@@ -22,21 +22,17 @@ module Dhall.DirectoryTree
 import Control.Applicative       (empty)
 import Control.Exception         (Exception)
 import Control.Monad             (unless, when)
-import Data.Either.Validation    (Validation (..))
 import Data.Functor.Identity     (Identity (..))
 import Data.Maybe                (fromMaybe, isJust)
 import Data.Sequence             (Seq)
-import Data.Text                 (Text)
 import Data.Void                 (Void)
 import Dhall.DirectoryTree.Types
-import Dhall.Marshal.Decode      (Decoder (..), Expector)
+import Dhall.Marshal.Decode      (Decoder, Expector)
 import Dhall.Src                 (Src)
 import Dhall.Syntax
     ( Chunks (..)
-    , Const (..)
     , Expr (..)
     , RecordField (..)
-    , Var (..)
     )
 import System.FilePath           ((</>))
 import System.PosixCompat.Types  (FileMode, GroupID, UserID)
@@ -45,11 +41,9 @@ import qualified Control.Exception           as Exception
 import qualified Data.Foldable               as Foldable
 import qualified Data.Text                   as Text
 import qualified Data.Text.IO                as Text.IO
-import qualified Dhall.Core                  as Core
+import qualified Dhall
 import qualified Dhall.Map                   as Map
-import qualified Dhall.Marshal.Decode        as Decode
 import qualified Dhall.Pretty
-import qualified Dhall.TypeCheck             as TypeCheck
 import qualified Dhall.Util                  as Util
 import qualified Prettyprinter               as Pretty
 import qualified Prettyprinter.Render.String as Pretty
@@ -232,38 +226,15 @@ toDirectoryTree allowSeparators path expression = case expression of
       where
         unexpectedExpression = expression
 
+{-# DEPRECATED decodeDirectoryTree "Use Dhall.rawInput directly." #-}
 -- | Decode a fixpoint directory tree from a Dhall expression.
 decodeDirectoryTree :: Expr s Void -> IO (Seq FilesystemEntry)
-decodeDirectoryTree (Core.alphaNormalize . Core.denote -> expression@(Lam _ _ (Lam _ _ body))) = do
-    expected' <- case directoryTreeType of
-        Success x -> return x
-        Failure e -> Exception.throwIO e
+decodeDirectoryTree = fmap unDirectoryTree . Dhall.rawInput Dhall.auto
 
-    _ <- Core.throws $ TypeCheck.typeOf $ Annot expression expected'
-
-    case Decode.extract decoder body of
-        Success x -> return x
-        Failure e -> Exception.throwIO e
-    where
-        decoder :: Decoder (Seq FilesystemEntry)
-        decoder = Decode.auto
-decodeDirectoryTree expr = Exception.throwIO $ FilesystemError $ Core.denote expr
-
+{-# DEPRECATED directoryTreeType "Use the decoder of DirectoryTree directly." #-}
 -- | The type of a fixpoint directory tree expression.
 directoryTreeType :: Expector (Expr Src Void)
-directoryTreeType = Pi Nothing "tree" (Const Type)
-    <$> (Pi Nothing "make" <$> makeType <*> pure (App List (Var (V "tree" 0))))
-
--- | The type of make part of a fixpoint directory tree expression.
-makeType :: Expector (Expr Src Void)
-makeType = Record . Map.fromList <$> sequenceA
-    [ makeConstructor "directory" (Decode.auto :: Decoder DirectoryEntry)
-    , makeConstructor "file" (Decode.auto :: Decoder FileEntry)
-    ]
-    where
-        makeConstructor :: Text -> Decoder b -> Expector (Text, RecordField Src Void)
-        makeConstructor name dec = (name,) . Core.makeRecordField
-            <$> (Pi Nothing "_" <$> expected dec <*> pure (Var (V "tree" 0)))
+directoryTreeType = Dhall.expected (Dhall.auto :: Decoder DirectoryTree)
 
 -- | Resolve a `User` to a numerical id.
 getUser :: User -> IO UserID
@@ -279,7 +250,7 @@ getUser (UserName name) =
 -- | Resolve a `Group` to a numerical id.
 getGroup :: Group -> IO GroupID
 getGroup (GroupId gid) = return gid
-getGroup (GroupName name) = 
+getGroup (GroupName name) =
 #ifdef mingw32_HOST_OS
     ioError $ mkIOError illegalOperationErrorType x Nothing Nothing
     where x = "System.Posix.User.getGroupEntryForName: not supported"

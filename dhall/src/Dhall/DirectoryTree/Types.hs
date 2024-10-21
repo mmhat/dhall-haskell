@@ -1,19 +1,25 @@
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PatternSynonyms    #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TupleSections      #-}
 {-# LANGUAGE TypeApplications   #-}
+{-# LANGUAGE TypeFamilies       #-}
 {-# LANGUAGE ViewPatterns       #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Types used by the implementation of the @to-directory-tree@ subcommand
 module Dhall.DirectoryTree.Types
-    ( FilesystemEntry(..)
+    ( DirectoryTree(..)
+    , FilesystemEntry(..)
     , DirectoryEntry
     , FileEntry
     , Entry(..)
@@ -33,14 +39,19 @@ import Data.Functor.Contravariant ((>$<))
 import Data.Functor.Identity      (Identity (..))
 import Data.Sequence              (Seq)
 import Data.Text                  (Text)
+import Data.Void                  (Void)
 import Data.Word                  (Word32)
-import Dhall.Marshal.Internal     (Generic, InputNormalizer, InterpretOptions (..), defaultInterpretOptions)
-import Dhall.Marshal.Decode       ( Decoder (..), FromDhall (..))
+import Dhall.Marshal.Internal     (Generic, InputNormalizer, InterpretOptions (..), defaultInputNormalizer, defaultInterpretOptions)
+import Dhall.Marshal.Decode       ( Decoder (..), FromDhall (..), Expector)
 import Dhall.Marshal.Encode       (Encoder(..), ToDhall(..))
-import Dhall.Syntax               (Expr (..), FieldSelection (..), Var (..))
+import Dhall.Src                  (Src)
+import Dhall.Syntax               (Const(..), Expr (..), FieldSelection (..), RecordField, Var (..), makeFieldSelection, makeFunctionBinding, makeRecordField)
 import System.PosixCompat.Types   (GroupID, UserID)
+import Dhall.Core                 (alphaNormalize, denote)
 
+import qualified Data.Sequence            as Seq
 import qualified Data.Text                as Text
+import qualified Dhall.Map                as Map
 import qualified Dhall.Marshal.Decode     as Decode
 import qualified Dhall.Marshal.Encode     as Encode
 import qualified System.PosixCompat.Files as Posix
@@ -62,6 +73,83 @@ import qualified System.PosixCompat.Types as Posix
 pattern Make :: Text -> Expr s a -> Expr s a
 pattern Make label entry <- App (Field (Var (V "_" 0)) (fieldSelectionLabel -> label)) entry
 
+newtype DirectoryTree = DirectoryTree {unDirectoryTree :: Seq FilesystemEntry}
+    deriving stock (Show)
+    deriving newtype (Monoid, Semigroup)
+
+instance FromDhall DirectoryTree where
+    autoWith normalizer = Decoder
+        { expected = directoryTreeExpector normalizer
+        , extract = \expr -> case alphaNormalize . denote $ expr of
+            Lam _ _ (Lam _ _ body) -> DirectoryTree <$> extract bodyDecoder body
+            _ -> Decode.typeError (expected bodyDecoder) expr
+        }
+        where
+            bodyDecoder :: Decoder (Seq FilesystemEntry)
+            bodyDecoder = Decode.sequence (filesystemEntryDecoder normalizer)
+
+instance ToDhall DirectoryTree where
+    injectWith normalizer =
+        Encoder
+            { declared = directoryTreeType
+            , embed = \(DirectoryTree entries) ->
+                Lam Nothing (makeFunctionBinding "tree" (Const Type)) $
+                    Lam Nothing (makeFunctionBinding "make" (App makeType (Var "tree"))) $
+                        let
+                            entries' = foldMap (Seq.singleton . embedEntry normalizer) entries
+                        in
+                            -- See https://github.com/dhall-lang/dhall-haskell/issues/1359
+                            ( if Seq.null entries'
+                                then ListLit (Just (App List (Var "tree")))
+                                else ListLit Nothing
+                            )
+                                entries'
+            }
+
+newtype Tree = Tree {unTree :: Expr Src Void}
+
+instance ToDhall Tree where
+    injectWith _normalizer =
+        Encoder
+            { declared = Var "tree"
+            , embed = unTree
+            }
+
+treeDecoder :: (Expr Src Void -> Decode.Extractor Src Void a) -> Decoder a
+treeDecoder f =
+        Decoder
+            { expected = pure (Var "tree")
+            , extract = f
+            }
+
+-- | The type of a fixpoint directory tree expression.
+directoryTreeType :: Expr Src Void
+directoryTreeType = Pi Nothing "tree" (Const Type)
+    (Pi Nothing "make" makeType (App List (Var (V "tree" 0))))
+
+-- | The type of make part of a fixpoint directory tree expression.
+makeType :: Expr Src Void
+makeType = Record . Map.fromList $
+    [ ("directory", makeRecordField (directoryEntryType defaultInputNormalizer))
+    , ("file", makeRecordField (fileEntryType defaultInputNormalizer))
+    ]
+
+-- | The type of a fixpoint directory tree expression.
+directoryTreeExpector :: InputNormalizer -> Expector (Expr Src Void)
+directoryTreeExpector normalizer = Pi Nothing "tree" (Const Type)
+    <$> (Pi Nothing "make" <$> makeExpector normalizer <*> pure (App List (Var (V "tree" 0))))
+
+-- | The type of make part of a fixpoint directory tree expression.
+makeExpector :: InputNormalizer -> Expector (Expr Src Void)
+makeExpector normalizer = Record . Map.fromList <$> sequenceA
+    [ makeConstructor "directory" directoryEntryDecoder
+    , makeConstructor "file" fileEntryDecoder
+    ]
+    where
+        makeConstructor :: Text -> (InputNormalizer -> Decoder b) -> Expector (Text, RecordField Src Void)
+        makeConstructor name dec = (name,) . makeRecordField
+            <$> (Pi Nothing "_" <$> expected (dec normalizer) <*> pure (Var (V "tree" 0)))
+
 -- | A directory in the filesystem.
 type DirectoryEntry = Entry (Seq FilesystemEntry)
 
@@ -74,16 +162,17 @@ data FilesystemEntry
     | FileEntry (Entry Text)
     deriving (Eq, Generic, Ord, Show)
 
-instance FromDhall FilesystemEntry where
-    autoWith normalizer = Decoder
-        { expected = pure $ Var (V "tree" 0)
-        , extract = \case
-            Make "directory" entry ->
-                DirectoryEntry <$> extract (autoWith normalizer) entry
-            Make "file" entry ->
-                FileEntry <$> extract (autoWith normalizer) entry
-            expr -> Decode.typeError (expected (Decode.autoWith normalizer :: Decoder FilesystemEntry)) expr
-        }
+filesystemEntryDecoder :: InputNormalizer -> Decoder FilesystemEntry
+filesystemEntryDecoder normalizer = treeDecoder $ \case
+    Make "directory" entry ->
+        DirectoryEntry <$> extract (directoryEntryDecoder normalizer) entry
+    Make "file" entry ->
+        FileEntry <$> extract (fileEntryDecoder normalizer) entry
+    expr -> Decode.typeError (expected (filesystemEntryDecoder normalizer)) expr
+
+embedEntry :: InputNormalizer -> FilesystemEntry -> Expr Src Void
+embedEntry normalizer (DirectoryEntry directory) = embedDirectoryEntry normalizer directory
+embedEntry normalizer (FileEntry file) = embedFileEntry normalizer file
 
 -- | A generic filesystem entry. This type holds the metadata that apply to all
 -- entries. It is parametric over the content of such an entry.
@@ -100,6 +189,54 @@ instance FromDhall a => FromDhall (Entry a) where
     autoWith = Decode.genericAutoWithInputNormalizer Decode.defaultInterpretOptions
         { fieldModifier = Text.toLower . Text.drop (Text.length "entry")
         }
+
+directoryEntryDecoder :: InputNormalizer -> Decoder DirectoryEntry
+directoryEntryDecoder = entryDecoder (Decode.sequence . filesystemEntryDecoder)
+
+fileEntryDecoder :: InputNormalizer -> Decoder FileEntry
+fileEntryDecoder = entryDecoder (const Decode.strictText)
+
+entryDecoder :: (InputNormalizer -> Decoder a) -> InputNormalizer -> Decoder (Entry a)
+entryDecoder nested normalizer = Decode.record
+    ( Entry
+        <$> Decode.field "name" (Decode.autoWith normalizer)
+        <*> Decode.field "content" (nested normalizer)
+        <*> Decode.field "user" (Decode.autoWith normalizer)
+        <*> Decode.field "group" (Decode.autoWith normalizer)
+        <*> Decode.field "mode" (Decode.autoWith normalizer)
+    )
+
+directoryEntryType :: InputNormalizer -> Expr Src Void
+directoryEntryType normalizer =
+    declared
+      ( Encode.genericToDhallWithInputNormalizer @(Entry (Seq Tree)) defaultInterpretOptions normalizer
+      )
+
+embedDirectoryEntry :: InputNormalizer -> DirectoryEntry -> Expr Src Void
+embedDirectoryEntry normalizer directory =
+    App
+        (Field (Var "make") (makeFieldSelection "directory"))
+        ( embed
+            ( Encode.genericToDhallWithInputNormalizer defaultInterpretOptions normalizer
+            )
+            (fmap (fmap (Tree . embedEntry normalizer)) directory)
+        )
+
+fileEntryType :: InputNormalizer -> Expr Src Void
+fileEntryType normalizer =
+    declared
+      ( Encode.genericToDhallWithInputNormalizer @FileEntry defaultInterpretOptions normalizer
+      )
+
+embedFileEntry :: InputNormalizer -> FileEntry -> Expr Src Void
+embedFileEntry normalizer file =
+    App
+        (Field (Var "make") (makeFieldSelection "file"))
+        ( embed
+            ( Encode.genericToDhallWithInputNormalizer defaultInterpretOptions normalizer
+            )
+            file
+        )
 
 -- | A user identified either by id or name.
 data User
