@@ -81,8 +81,7 @@ fixpointedPermissions = testCase "permissions" $ do
 fixpointedUserGroup :: TestTree
 fixpointedUserGroup = testCase "user and group" $ do
     let file = "./tests/to-directory-tree/fixpoint-usergroup.dhall"
-    expr <- Dhall.inputExpr file
-    entries <- decodeDirectoryTree expr
+    DirectoryTree entries <- Dhall.input Dhall.auto file
     entries @?=
         [ FileEntry $ Entry
             { entryName = "ids"

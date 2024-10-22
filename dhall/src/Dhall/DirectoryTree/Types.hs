@@ -8,7 +8,6 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PatternSynonyms    #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TupleSections      #-}
 {-# LANGUAGE TypeApplications   #-}
 {-# LANGUAGE TypeFamilies       #-}
@@ -125,7 +124,7 @@ treeDecoder f =
 -- | The type of a fixpoint directory tree expression.
 directoryTreeType :: Expr Src Void
 directoryTreeType = Pi Nothing "tree" (Const Type)
-    (Pi Nothing "make" makeType (App List (Var (V "tree" 0))))
+    (Pi Nothing "make" makeType (App List (Var "tree")))
 
 -- | The type of make part of a fixpoint directory tree expression.
 makeType :: Expr Src Void
@@ -137,7 +136,10 @@ makeType = Record . Map.fromList $
 -- | The type of a fixpoint directory tree expression.
 directoryTreeExpector :: InputNormalizer -> Expector (Expr Src Void)
 directoryTreeExpector normalizer = Pi Nothing "tree" (Const Type)
-    <$> (Pi Nothing "make" <$> makeExpector normalizer <*> pure (App List (Var (V "tree" 0))))
+    <$> ( Pi Nothing "make"
+        <$> makeExpector normalizer
+        <*> pure (App List (Var "tree"))
+        )
 
 -- | The type of make part of a fixpoint directory tree expression.
 makeExpector :: InputNormalizer -> Expector (Expr Src Void)
@@ -147,8 +149,11 @@ makeExpector normalizer = Record . Map.fromList <$> sequenceA
     ]
     where
         makeConstructor :: Text -> (InputNormalizer -> Decoder b) -> Expector (Text, RecordField Src Void)
-        makeConstructor name dec = (name,) . makeRecordField
-            <$> (Pi Nothing "_" <$> expected (dec normalizer) <*> pure (Var (V "tree" 0)))
+        makeConstructor name makeDecoder = (name,) . makeRecordField
+            <$> ( Pi Nothing "_"
+                <$> expected (makeDecoder normalizer)
+                <*> pure (Var "tree")
+                )
 
 -- | A directory in the filesystem.
 type DirectoryEntry = Entry (Seq FilesystemEntry)
@@ -171,8 +176,10 @@ filesystemEntryDecoder normalizer = treeDecoder $ \case
     expr -> Decode.typeError (expected (filesystemEntryDecoder normalizer)) expr
 
 embedEntry :: InputNormalizer -> FilesystemEntry -> Expr Src Void
-embedEntry normalizer (DirectoryEntry directory) = embedDirectoryEntry normalizer directory
-embedEntry normalizer (FileEntry file) = embedFileEntry normalizer file
+embedEntry normalizer (DirectoryEntry directory) =
+    embedDirectoryEntry normalizer directory
+embedEntry normalizer (FileEntry file) =
+    embedFileEntry normalizer file
 
 -- | A generic filesystem entry. This type holds the metadata that apply to all
 -- entries. It is parametric over the content of such an entry.
@@ -186,9 +193,7 @@ data Entry a = Entry
     deriving (Eq, Foldable, Functor, Generic, Ord, Show, Traversable)
 
 instance FromDhall a => FromDhall (Entry a) where
-    autoWith = Decode.genericAutoWithInputNormalizer Decode.defaultInterpretOptions
-        { fieldModifier = Text.toLower . Text.drop (Text.length "entry")
-        }
+    autoWith = Decode.genericAutoWithInputNormalizer entryInterpretOptions
 
 directoryEntryDecoder :: InputNormalizer -> Decoder DirectoryEntry
 directoryEntryDecoder = entryDecoder (Decode.sequence . filesystemEntryDecoder)
@@ -209,7 +214,10 @@ entryDecoder nested normalizer = Decode.record
 directoryEntryType :: InputNormalizer -> Expr Src Void
 directoryEntryType normalizer =
     declared
-      ( Encode.genericToDhallWithInputNormalizer @(Entry (Seq Tree)) defaultInterpretOptions normalizer
+      ( Encode.genericToDhallWithInputNormalizer
+            @(Entry (Seq Tree))
+            entryInterpretOptions
+            normalizer
       )
 
 embedDirectoryEntry :: InputNormalizer -> DirectoryEntry -> Expr Src Void
@@ -217,7 +225,9 @@ embedDirectoryEntry normalizer directory =
     App
         (Field (Var "make") (makeFieldSelection "directory"))
         ( embed
-            ( Encode.genericToDhallWithInputNormalizer defaultInterpretOptions normalizer
+            ( Encode.genericToDhallWithInputNormalizer
+                entryInterpretOptions
+                normalizer
             )
             (fmap (fmap (Tree . embedEntry normalizer)) directory)
         )
@@ -225,7 +235,10 @@ embedDirectoryEntry normalizer directory =
 fileEntryType :: InputNormalizer -> Expr Src Void
 fileEntryType normalizer =
     declared
-      ( Encode.genericToDhallWithInputNormalizer @FileEntry defaultInterpretOptions normalizer
+      ( Encode.genericToDhallWithInputNormalizer
+            @FileEntry
+            entryInterpretOptions
+            normalizer
       )
 
 embedFileEntry :: InputNormalizer -> FileEntry -> Expr Src Void
@@ -233,10 +246,17 @@ embedFileEntry normalizer file =
     App
         (Field (Var "make") (makeFieldSelection "file"))
         ( embed
-            ( Encode.genericToDhallWithInputNormalizer defaultInterpretOptions normalizer
+            ( Encode.genericToDhallWithInputNormalizer
+                entryInterpretOptions
+                normalizer
             )
             file
         )
+
+entryInterpretOptions :: InterpretOptions
+entryInterpretOptions = defaultInterpretOptions
+        { fieldModifier = Text.toLower . Text.drop (Text.length "entry")
+        }
 
 -- | A user identified either by id or name.
 data User
@@ -311,9 +331,7 @@ instance FromDhall (Mode Maybe) where
     autoWith = modeDecoder
 
 modeDecoder :: FromDhall (f (Access f)) => InputNormalizer -> Decoder (Mode f)
-modeDecoder = Decode.genericAutoWithInputNormalizer defaultInterpretOptions
-    { fieldModifier = Text.toLower . Text.drop (Text.length "mode")
-    }
+modeDecoder = Decode.genericAutoWithInputNormalizer modeInterpretOptions
 
 instance ToDhall (Mode Identity) where
     injectWith = modeEncoder
@@ -322,7 +340,10 @@ instance ToDhall (Mode Maybe) where
     injectWith = modeEncoder
 
 modeEncoder :: ToDhall (f (Access f)) => InputNormalizer -> Encoder (Mode f)
-modeEncoder = Encode.genericToDhallWithInputNormalizer defaultInterpretOptions
+modeEncoder = Encode.genericToDhallWithInputNormalizer modeInterpretOptions
+
+modeInterpretOptions :: InterpretOptions
+modeInterpretOptions = defaultInterpretOptions
     { fieldModifier = Text.toLower . Text.drop (Text.length "mode")
     }
 
@@ -348,9 +369,7 @@ instance FromDhall (Access Maybe) where
     autoWith = accessDecoder
 
 accessDecoder :: FromDhall (f Bool) => InputNormalizer -> Decoder (Access f)
-accessDecoder = Decode.genericAutoWithInputNormalizer defaultInterpretOptions
-    { fieldModifier = Text.toLower . Text.drop (Text.length "access")
-    }
+accessDecoder = Decode.genericAutoWithInputNormalizer accessInterpretOptions
 
 instance ToDhall (Access Identity) where
     injectWith = accessEncoder
@@ -359,7 +378,10 @@ instance ToDhall (Access Maybe) where
     injectWith = accessEncoder
 
 accessEncoder :: ToDhall (f Bool) => InputNormalizer -> Encoder (Access f)
-accessEncoder = Encode.genericToDhallWithInputNormalizer defaultInterpretOptions
+accessEncoder = Encode.genericToDhallWithInputNormalizer accessInterpretOptions
+
+accessInterpretOptions :: InterpretOptions
+accessInterpretOptions = defaultInterpretOptions
     { fieldModifier = Text.toLower . Text.drop (Text.length "access")
     }
 
