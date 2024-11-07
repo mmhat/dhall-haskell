@@ -193,7 +193,7 @@ data Entry a = Entry
     deriving (Eq, Foldable, Functor, Generic, Ord, Show, Traversable)
 
 instance FromDhall a => FromDhall (Entry a) where
-    autoWith = Decode.genericAutoWithInputNormalizer entryInterpretOptions
+    autoWith = entryDecoder Decode.autoWith
 
 directoryEntryDecoder :: InputNormalizer -> Decoder DirectoryEntry
 directoryEntryDecoder = entryDecoder (Decode.sequence . filesystemEntryDecoder)
