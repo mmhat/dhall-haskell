@@ -237,7 +237,6 @@ Common common
         mtl                         >= 2.2.1    && < 2.4 ,
         network-uri                 >= 2.6      && < 2.7 ,
         optparse-applicative        >= 0.14.0.0 && < 0.19,
-        parsers                     >= 0.12.4   && < 0.13,
         parser-combinators                               ,
         prettyprinter               >= 1.7.0    && < 1.8 ,
         prettyprinter-ansi-terminal >= 1.1.2    && < 1.2 ,

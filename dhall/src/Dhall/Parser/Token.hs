@@ -137,7 +137,7 @@ import Data.Functor            (void, ($>))
 import Data.Ratio              ((%))
 import Data.Text               (Text)
 import Dhall.Syntax
-import Text.Parser.Combinators (choice, try, (<?>))
+import Text.Megaparsec         (choice, try, (<?>))
 
 import qualified Control.Monad              as Monad
 import qualified Data.Char                  as Char
@@ -148,18 +148,16 @@ import qualified Data.List.NonEmpty
 import qualified Data.Scientific            as Scientific
 import qualified Data.Text
 import qualified Text.Megaparsec
+import qualified Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer
-import qualified Text.Parser.Char
-import qualified Text.Parser.Combinators
-import qualified Text.Parser.Token
 
 import Numeric.Natural (Natural)
 
 -- | Match an end-of-line character sequence
 endOfLine :: Parser Text
 endOfLine =
-    (   Text.Parser.Char.text "\n"  
-    <|> Text.Parser.Char.text "\r\n"
+    (   Text.Megaparsec.Char.string "\n"
+    <|> Text.Megaparsec.Char.string "\r\n"
     ) <?> "newline"
 
 -- | Returns `True` if the given `Int` is a valid Unicode codepoint
@@ -176,14 +174,14 @@ validCodepoint c =
     This corresponds to the @whsp@ rule in the official grammar
 -}
 whitespace :: Parser ()
-whitespace = Text.Parser.Combinators.skipMany whitespaceChunk
+whitespace = Text.Megaparsec.skipMany whitespaceChunk
 
 {-| Parse 1 or more whitespace characters (including comments)
 
     This corresponds to the @whsp1@ rule in the official grammar
 -}
 nonemptyWhitespace :: Parser ()
-nonemptyWhitespace = Text.Parser.Combinators.skipSome whitespaceChunk
+nonemptyWhitespace = Text.Megaparsec.skipSome whitespaceChunk
 
 alpha :: Char -> Bool
 alpha c = ('\x41' <= c && c <= '\x5A') || ('\x61' <= c && c <= '\x7A')
@@ -234,7 +232,7 @@ doubleLiteral = (do
     -- ensure that we follow the standard exactly as written.
     sign <- signPrefix <|> pure id
 
-    x <- Text.Parser.Token.decimal
+    x <- Text.Megaparsec.Char.Lexer.decimal
 
     let alternative0 = do
             y <- fraction
@@ -253,9 +251,9 @@ doubleLiteral = (do
     return (sign (Scientific.toRealFloat n)) ) <?> "literal"
   where
     fraction = do
-        _ <- Text.Parser.Char.char '.'
+        _ <- Text.Megaparsec.Char.char '.'
 
-        digits <- some Text.Parser.Char.digit
+        digits <- some Text.Megaparsec.Char.digitChar
 
         let snoc y d =
               y + Scientific.scientific (fromIntegral (Char.digitToInt d)) (Scientific.base10Exponent y - 1)
@@ -263,11 +261,11 @@ doubleLiteral = (do
         return (List.foldl' snoc 0 digits)
 
     exponent' = do
-        _ <- Text.Parser.Char.oneOf "eE"
+        _ <- Text.Megaparsec.Char.char 'e' <|> Text.Megaparsec.Char.char 'E'
 
         sign <- signPrefix <|> pure id
 
-        x <- Text.Parser.Token.decimal
+        x <- Text.Megaparsec.Char.Lexer.decimal
 
         return (Scientific.scientific 1 (fromInteger (sign x)))
 
@@ -319,7 +317,7 @@ naturalLiteral = (do
         tailDigit = decimalDigit digit <?> "digit"
 
         decimalDigit predicate = do
-            c <- Text.Parser.Char.satisfy predicate
+            c <- Text.Megaparsec.satisfy predicate
             return (fromIntegral (Char.ord c - Char.ord '0'))
 
         mkNum = Data.Foldable.foldl' step 0
@@ -332,7 +330,7 @@ naturalLiteral = (do
 -}
 dateFullYear :: Parser Integer
 dateFullYear = do
-    digits <- Monad.replicateM 4 (Text.Parser.Char.satisfy digit)
+    digits <- Monad.replicateM 4 (Text.Megaparsec.satisfy digit)
 
     return (digits `base` 10)
 
@@ -342,7 +340,7 @@ dateFullYear = do
 -}
 dateMonth :: Parser Int
 dateMonth = do
-    digits <- Monad.replicateM 2 (Text.Parser.Char.satisfy digit)
+    digits <- Monad.replicateM 2 (Text.Megaparsec.satisfy digit)
 
     let month = digits `base` 10
 
@@ -356,7 +354,7 @@ dateMonth = do
 -}
 dateMday :: Parser Int
 dateMday = do
-    digits <- Monad.replicateM 2 (Text.Parser.Char.satisfy digit)
+    digits <- Monad.replicateM 2 (Text.Megaparsec.satisfy digit)
 
     let day = digits `base` 10
 
@@ -370,7 +368,7 @@ dateMday = do
 -}
 timeHour :: Parser Int
 timeHour = do
-    digits <- Monad.replicateM 2 (Text.Parser.Char.satisfy digit)
+    digits <- Monad.replicateM 2 (Text.Megaparsec.satisfy digit)
 
     let hour = digits `base` 10
 
@@ -384,7 +382,7 @@ timeHour = do
 -}
 timeMinute :: Parser Int
 timeMinute = do
-    digits <- Monad.replicateM 2 (Text.Parser.Char.satisfy digit)
+    digits <- Monad.replicateM 2 (Text.Megaparsec.satisfy digit)
 
     let minute = digits `base` 10
 
@@ -398,7 +396,7 @@ timeMinute = do
 -}
 timeSecond :: Parser Pico
 timeSecond = do
-    digits <- Monad.replicateM 2 (Text.Parser.Char.satisfy digit)
+    digits <- Monad.replicateM 2 (Text.Megaparsec.satisfy digit)
 
     let second = digits `base` 10
 
@@ -412,9 +410,9 @@ timeSecond = do
 -}
 timeSecFrac :: Parser (Pico, Word)
 timeSecFrac = do
-    _ <- Text.Parser.Char.text "."
+    _ <- Text.Megaparsec.Char.char '.'
 
-    digits <- some (Text.Parser.Char.satisfy digit)
+    digits <- some (Text.Megaparsec.satisfy digit)
 
     let precision = fromIntegral (length digits)
 
@@ -444,7 +442,7 @@ whitespaceChunk :: Parser ()
 whitespaceChunk =
     choice
         [ void (Dhall.Parser.Combinators.takeWhile1 predicate)
-        , void (Text.Parser.Char.text "\r\n" <?> "newline")
+        , void (Text.Megaparsec.Char.string "\r\n" <?> "newline")
         , void lineComment
         , void blockComment
         ] <?> "whitespace"
@@ -456,19 +454,19 @@ hexNumber :: Parser Int
 hexNumber = choice [ hexDigit, hexUpper, hexLower ]
   where
     hexDigit = do
-        c <- Text.Parser.Char.satisfy predicate
+        c <- Text.Megaparsec.satisfy predicate
         return (Char.ord c - Char.ord '0')
       where
         predicate c = '0' <= c && c <= '9'
 
     hexUpper = do
-        c <- Text.Parser.Char.satisfy predicate
+        c <- Text.Megaparsec.satisfy predicate
         return (10 + Char.ord c - Char.ord 'A')
       where
         predicate c = 'A' <= c && c <= 'F'
 
     hexLower = do
-        c <- Text.Parser.Char.satisfy predicate
+        c <- Text.Megaparsec.satisfy predicate
         return (10 + Char.ord c - Char.ord 'a')
       where
         predicate c = 'a' <= c && c <= 'f'
@@ -529,7 +527,7 @@ blockCommentContinue = endOfComment <|> continue
 
 simpleLabel :: Bool -> Parser Text
 simpleLabel allowReserved = try $ do
-    c    <- Text.Parser.Char.satisfy headCharacter
+    c    <- Text.Megaparsec.satisfy headCharacter
     rest <- Dhall.Parser.Combinators.takeWhile tailCharacter
     let t = Data.Text.cons c rest
     let isNotAKeyword = not $ t `Data.HashSet.member` reservedKeywords
@@ -640,7 +638,7 @@ posixEnvironmentVariableCharacter =
     escapeCharacter = do
         _ <- char '\\'
 
-        c <- Text.Parser.Char.satisfy (`elem` ("\"\\abfnrtv" :: String))
+        c <- Text.Megaparsec.satisfy (`elem` ("\"\\abfnrtv" :: String))
 
         case c of
             '"'  -> return "\""
@@ -866,14 +864,14 @@ unreserved c =
     in error messages
 -}
 text :: Data.Text.Text -> Parser Text
-text t = Text.Parser.Char.text t <?> Data.Text.unpack t
+text t = Text.Megaparsec.Char.string t <?> Data.Text.unpack t
 {-# INLINE text #-}
 
 {-| A variation on `Text.Parser.Char.char` that doesn't quote the expected
     token in error messages
 -}
 char :: Char -> Parser Char
-char c = Text.Parser.Char.char c <?> [ c ]
+char c = Text.Megaparsec.Char.char c <?> [ c ]
 {-# INLINE char #-}
 
 reserved :: Data.Text.Text -> Parser ()
@@ -1391,7 +1389,7 @@ _equivalent =
 _missing :: Parser ()
 _missing =
         keyword "missing"
-    *>  Text.Megaparsec.notFollowedBy (Text.Parser.Char.satisfy tailCharacter)
+    *>  Text.Megaparsec.notFollowedBy (Text.Megaparsec.satisfy tailCharacter)
 
 -- | Parse the @?@ symbol
 _importAlt :: Parser ()

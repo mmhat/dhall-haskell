@@ -240,8 +240,7 @@ import qualified System.FilePath                             as FilePath
 import qualified System.Info
 import qualified System.IO
 import qualified Text.Megaparsec
-import qualified Text.Parser.Combinators
-import qualified Text.Parser.Token
+import qualified Text.Megaparsec.Char
 
 {- $setup
 
@@ -648,9 +647,9 @@ loadImportWithSemisemanticCache (Chained (Import (ImportHashed _ importType) Cod
         Missing -> throwM (MissingImports [])
 
     let parser = unParser $ do
-            Text.Parser.Token.whiteSpace
+            Text.Megaparsec.Char.space
             r <- Dhall.Parser.expr
-            Text.Parser.Combinators.eof
+            Text.Megaparsec.eof
             return r
 
     parsedImport <- case Text.Megaparsec.parse parser path text of

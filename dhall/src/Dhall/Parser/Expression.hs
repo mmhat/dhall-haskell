@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -14,7 +13,7 @@ import Data.List.NonEmpty      (NonEmpty (..))
 import Data.Text               (Text)
 import Dhall.Src               (Src (..))
 import Dhall.Syntax
-import Text.Parser.Combinators (choice, try, (<?>))
+import Text.Megaparsec         (choice, try, (<?>))
 
 import qualified Control.Monad
 import qualified Control.Monad.Combinators          as Combinators
@@ -29,6 +28,7 @@ import qualified Data.Text
 import qualified Data.Text.Encoding
 import qualified Data.Time                          as Time
 import qualified Dhall.Crypto
+import qualified Dhall.Map
 import qualified Text.Megaparsec
 
 import Dhall.Parser.Combinators
@@ -199,7 +199,7 @@ temporalLiteral =
             timeZone <- timeOffset
 
             return
-                (RecordLit
+                (RecordLit . Dhall.Map.fromList $
                     [   ("date"    , makeRecordField date)
                     ,   ("time"    , makeRecordField time)
                     ,   ("timeZone", makeRecordField timeZone)
@@ -214,7 +214,7 @@ temporalLiteral =
             time <- partialTime
 
             return
-                (RecordLit
+                (RecordLit . Dhall.Map.fromList $
                     [   ("date", makeRecordField date)
                     ,   ("time", makeRecordField time)
                     ]
@@ -226,7 +226,7 @@ temporalLiteral =
             timeZone <- timeOffset
 
             return
-                (RecordLit
+                (RecordLit . Dhall.Map.fromList $
                     [   ("time"    , makeRecordField time)
                     ,   ("timeZone", makeRecordField timeZone)
                     ]
@@ -424,10 +424,10 @@ parsers embedded = Parsers{..}
                             _colon
                             nonemptyWhitespace
                             case (shallowDenote a, a0Info) of
-                                (ListLit Nothing [], _) -> do
+                                (ListLit Nothing Data.Sequence.Empty, _) -> do
                                     b <- expression
 
-                                    return (ListLit (Just b) [])
+                                    return (ListLit (Just b) Data.Sequence.Empty)
                                 (Merge c d Nothing, NakedMergeOrSomeOrToMap) -> do
                                     b <- expression
 
@@ -443,7 +443,7 @@ parsers embedded = Parsers{..}
 
                     let alternative5B2 =
                             case shallowDenote a of
-                                ListLit Nothing [] ->
+                                ListLit Nothing Data.Sequence.Empty ->
                                     fail "Empty list literal without annotation"
                                 _ -> pure a
 
@@ -1039,7 +1039,12 @@ parsers embedded = Parsers{..}
                             value <- expression
 
                             let cons (s0, key, s1) (key', values) =
-                                    (key, RecordField (Just s0) (RecordLit [ (key', values) ]) (Just s1) Nothing)
+                                    ( key
+                                    , RecordField (Just s0)
+                                        (RecordLit (Dhall.Map.singleton key' values))
+                                        (Just s1)
+                                        Nothing
+                                    )
 
                             let (lastSrc0, lastLabel, lastSrc1) = NonEmpty.last keys
                             let nil = (lastLabel, RecordField (Just lastSrc0) value (Just lastSrc1) (Just lastSrc2))

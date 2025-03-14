@@ -32,8 +32,7 @@ import Data.Void               (Void)
 import Dhall.Map               (Map)
 import Dhall.Src               (Src (..))
 import Prettyprinter           (Pretty (..))
-import Text.Parser.Combinators (try, (<?>))
-import Text.Parser.Token       (TokenParsing (..))
+import Text.Megaparsec         (try)
 
 import qualified Control.Monad.Fail
 import qualified Data.Char                   as Char
@@ -43,9 +42,6 @@ import qualified Dhall.Pretty
 import qualified Prettyprinter.Render.String as Pretty
 import qualified Text.Megaparsec
 import qualified Text.Megaparsec.Char
-import qualified Text.Parser.Char
-import qualified Text.Parser.Combinators
-import qualified Text.Parser.Token.Style
 
 -- | An exception annotated with a `Src` span
 data SourcedException e = SourcedException Src e
@@ -182,43 +178,43 @@ instance (Semigroup a, Monoid a) => Monoid (Parser a) where
 instance IsString a => IsString (Parser a) where
     fromString x = fromString x <$ Text.Megaparsec.Char.string (fromString x)
 
-instance Text.Parser.Combinators.Parsing Parser where
-  try = Text.Megaparsec.try
-
-  (<?>) = (Text.Megaparsec.<?>)
-
-  skipMany = Text.Megaparsec.skipMany
-
-  skipSome = Text.Megaparsec.skipSome
-
-  unexpected = fail
-
-  eof = Parser Text.Megaparsec.eof
-
-  notFollowedBy = Text.Megaparsec.notFollowedBy
-
-instance Text.Parser.Char.CharParsing Parser where
-  satisfy = Parser . Text.Megaparsec.satisfy
-
-  char = Text.Megaparsec.Char.char
-
-  notChar = Text.Megaparsec.Char.char
-
-  anyChar = Text.Megaparsec.anySingle
-
-  string = fmap Data.Text.unpack . Text.Megaparsec.Char.string . fromString
-
-  text = Text.Megaparsec.Char.string
-
-instance TokenParsing Parser where
-    someSpace =
-        Text.Parser.Token.Style.buildSomeSpaceParser
-            (Parser (Text.Megaparsec.skipSome (Text.Megaparsec.satisfy Char.isSpace)))
-            Text.Parser.Token.Style.haskellCommentStyle
-
-    highlight _ = id
-
-    semi = token (Text.Megaparsec.Char.char ';' <?> ";")
+--instance Text.Parser.Combinators.Parsing Parser where
+--  try = Text.Megaparsec.try
+--
+--  (<?>) = (Text.Megaparsec.<?>)
+--
+--  skipMany = Text.Megaparsec.skipMany
+--
+--  skipSome = Text.Megaparsec.skipSome
+--
+--  unexpected = fail
+--
+--  eof = Parser Text.Megaparsec.eof
+--
+--  notFollowedBy = Text.Megaparsec.notFollowedBy
+--
+--instance Text.Parser.Char.CharParsing Parser where
+--  satisfy = Parser . Text.Megaparsec.satisfy
+--
+--  char = Text.Megaparsec.Char.char
+--
+--  notChar = Text.Megaparsec.Char.char
+--
+--  anyChar = Text.Megaparsec.anySingle
+--
+--  string = fmap Data.Text.unpack . Text.Megaparsec.Char.string . fromString
+--
+--  text = Text.Megaparsec.Char.string
+--
+--instance TokenParsing Parser where
+--    someSpace =
+--        Text.Parser.Token.Style.buildSomeSpaceParser
+--            (Parser (Text.Megaparsec.skipSome (Text.Megaparsec.satisfy Char.isSpace)))
+--            Text.Parser.Token.Style.haskellCommentStyle
+--
+--    highlight _ = id
+--
+--    semi = token (Text.Megaparsec.Char.char ';' <?> ";")
 
 -- | @count n p@ parses @n@ occurrences of @p@
 count :: (Semigroup a, Monoid a) => Int -> Parser a -> Parser a
@@ -247,7 +243,7 @@ plus p = mappend <$> p <*> star p
 -- | @satisfy p@ creates a parser that consumes and return the next character
 --   if it satisfies the predicate @p@
 satisfy :: (Char -> Bool) -> Parser Text
-satisfy = fmap Data.Text.singleton . Text.Parser.Char.satisfy
+satisfy = fmap Data.Text.singleton . Text.Megaparsec.satisfy
 
 -- | @takeWhile p@ creates a parser that accepts the longest sequence of characters
 --   that match the given predicate possibly returning an empty sequence
@@ -266,8 +262,7 @@ toMap kvs = Dhall.Map.unorderedTraverseWithKey (\_k v -> v) m
   where
     m = Dhall.Map.fromListWithKey err (map (\(k, v) -> (k, pure v)) kvs)
 
-    err k _v1 _v2 = Text.Parser.Combinators.unexpected
-                        ("duplicate field: " ++ Data.Text.unpack k)
+    err k _v1 _v2 = fail ("duplicate field: " ++ Data.Text.unpack k)
 
 -- | Creates a 'Map Text a' using the provided combining function and the
 --   key-value pairs
